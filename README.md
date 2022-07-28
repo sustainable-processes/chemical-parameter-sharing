@@ -17,3 +17,7 @@ Then execute the following commands in the root of the repository (stolen from: 
 
 ## Schneider
 
+- Build-class-and-superclass-predictive-models
+- Create-transformation-FPs-sets
+- utilsFunctions
+- createFingerprintsReaction
