@@ -9,12 +9,15 @@
 # In[1]:
 
 
-import _pickle as cPickle
 import gzip
-from collections import defaultdict
 import random
+import _pickle as cPickle
+from collections import defaultdict
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
+import numpy as np
+
 import utilsFunctions
 
 
@@ -77,7 +80,7 @@ print(reaction_superclasses)
 
 
 random.seed(0xd00f)
-indices=range(len(fps))
+indices=list(range(len(fps)))
 random.shuffle(indices)
 
 fpsz=256
@@ -86,12 +89,14 @@ trainActs=[]
 testFps_AP3_agentFeature=[]
 testActs=[]
 
-print 'building fp collection'
+print('building fp collection')
 
 rclasses=sorted(list(reaction_classes))
 for i,klass in enumerate(rclasses):
     actIds = [x for x in indices if (fps[x][2].split('.')[0]+"."+fps[x][2].split('.')[1])==klass]
     nActive = (len(actIds)/5) # take 20% for training
+    assert nActive.is_integer()
+    nActive = int(nActive)
     for x in actIds[:nActive]:
         np1 = utilsFunctions.fpToNPfloat(fps[x][3],fpsz)
         np2 = np.asarray(fps[x][4], dtype=float)
@@ -110,7 +115,7 @@ for i,klass in enumerate(rclasses):
 # In[7]:
 
 
-print 'training model'
+print('training model')
 lr_cls =  LogisticRegression()
 result_lr_cls = lr_cls.fit(trainFps_AP3_agentFeature,trainActs)
 
@@ -134,7 +139,8 @@ utilsFunctions.labelled_cmat(cmat_fp_AP3_feature,rclasses,figsize=(16,12), label
 # In[10]:
 
 
-from sklearn.externals import joblib
+# from sklearn.externals import joblib
+import joblib
 
 
 # Store the model as scikit-learn model
@@ -153,7 +159,7 @@ joblib.dump(result_lr_cls, dataDir+'LR_transformationFP256bit.AP3.agent_featureF
 
 
 random.seed(0xd00f)
-indices=range(len(fps))
+indices=list(range(len(fps)))
 random.shuffle(indices)
 
 fpsz=256
@@ -162,12 +168,14 @@ trainActs=[]
 testFps_AP3_agentFeature=[]
 testActs=[]
 
-print 'building fp collection'
+print('building fp collection')
 
 rsclasses=sorted(list(reaction_superclasses))
 for i,klass in enumerate(rsclasses):
     actIds = [x for x in indices if (fps[x][2].split('.')[0])==klass]
     nActive = (len(actIds)/5) # take 20% for training
+    assert nActive.is_integer()
+    nActive = int(nActive)
     for x in actIds[:nActive]:
         np1 = utilsFunctions.fpToNPfloat(fps[x][3],fpsz)
         np2 = np.asarray(fps[x][4], dtype=float)
@@ -186,7 +194,7 @@ for i,klass in enumerate(rsclasses):
 # In[13]:
 
 
-print 'training model'
+print('training model')
 lr_cls =  LogisticRegression()
 result_lr_cls = lr_cls.fit(trainFps_AP3_agentFeature,trainActs)
 
@@ -240,7 +248,7 @@ while 1:
     fps.append([idx,lbl,cls,apfp_woA,agent_feature])
     idx+=1
     if not lineNo%10000:
-        print "Done "+str(lineNo)
+        print("Done "+str(lineNo))
 
 
 # Combine the AP3 and agent feature FPs for the class model
@@ -249,14 +257,14 @@ while 1:
 
 
 random.seed(0xd00f)
-indices=range(len(fps))
+indices=list(range(len(fps)))
 random.shuffle(indices)
 
 fpsz=256
 
 testFps_AP3_agentFeature=[]
 testActs=[]
-print 'building fp collection'
+print('building fp collection')
 
 rclasses=sorted(list(reaction_classes))
 for i,klass in enumerate(rclasses):
@@ -289,14 +297,14 @@ utilsFunctions.labelled_cmat(cmat_fp_AP3_feature,rclasses,figsize=(16,12), label
 
 
 random.seed(0xd00f)
-indices=range(len(fps))
+indices=list(range(len(fps)))
 random.shuffle(indices)
 
 fpsz=256
 
 testFps_AP3_agentFeature=[]
 testActs=[]
-print 'building fp collection'
+print('building fp collection')
 
 rsclasses=sorted(list(reaction_superclasses))
 for i,klass in enumerate(rsclasses):
@@ -322,3 +330,5 @@ cmat_fp_AP3_feature = utilsFunctions.evaluateModel(clf2, testFps_AP3_agentFeatur
 
 utilsFunctions.labelled_cmat(cmat_fp_AP3_feature,rsclasses,figsize=(16,12), labelExtras=names_rTypes)
 
+
+# %%
