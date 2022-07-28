@@ -71,11 +71,11 @@ while 1:
             fp_MG2_agents = DataStructs.UIntSparseIntVect(4096)
         fp_featureAgent = createFingerprintsReaction.create_agent_feature_FP(rxn)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
-        continue;
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
+        continue
     cPickle.dump((lbl,klass,fp_AP3,fp_featureAgent,fp_MG2_agents),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 
 
 # Create transformation FP (AP3 + agent featureFP) for external test set A
@@ -98,11 +98,11 @@ while 1:
         fp_AP3 = createFingerprintsReaction.create_transformation_FP(rxn,AllChem.FingerprintType.AtomPairFP)
         fp_featureAgent = createFingerprintsReaction.create_agent_feature_FP(rxn)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
-        continue;
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
+        continue
     cPickle.dump((lbl,klass,fp_AP3,fp_featureAgent),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 
 
 # Create transformation FP (AP3 + agent featureFP) for external test set B (unclassified reactions)
@@ -125,9 +125,11 @@ while 1:
         fp_AP3 = createFingerprintsReaction.create_transformation_FP(rxn,AllChem.FingerprintType.AtomPairFP)
         fp_featureAgent = createFingerprintsReaction.create_agent_feature_FP(rxn)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
-        continue;
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
+        continue
     cPickle.dump((lbl,smi,fp_AP3,fp_featureAgent),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 
+
+# %%
