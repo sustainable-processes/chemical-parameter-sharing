@@ -13,7 +13,8 @@ Then execute the following commands in the root of the repository (stolen from: 
     
  ## Sources of code:
  Reaction difference FP: https://pubs.acs.org/doi/abs/10.1021/ci5006614
-
+ 
+ NN condition prediction: https://pubs.acs.org/doi/full/10.1021/acscentsci.8b00357
 
 ## Schneider
 
@@ -21,3 +22,11 @@ Then execute the following commands in the root of the repository (stolen from: 
 - Create-transformation-FPs-sets
 - utilsFunctions
 - createFingerprintsReaction
+
+## Code workflow
+
+1) Data handling
+    - Data: USPTO
+    - Format: SMILES reaction string
+2) Reaction clustering
+3) NN condition prediction conditioned on reaction class
