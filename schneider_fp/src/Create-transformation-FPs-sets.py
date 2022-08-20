@@ -28,6 +28,8 @@ dataDir = "../data/"
 infile = gzip.open(dataDir+'training_test_set_patent_data.pkl.gz', 'rb')
 pklfile = gzip.open(dataDir+'transformationFPs_test_set_patent_data.pkl.gz','wb+')
 
+# %%
+
 lineNo=0
 while 1:
     lineNo+=1
