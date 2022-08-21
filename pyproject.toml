@@ -6,7 +6,7 @@ authors = ["Genheden, Samuel <samuel.genheden@astrazeneca.com>", "Kannas, Christ
 license = "Apache 2.0"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.8,<3.10"
 pandas = "^1.0.0"
 xxhash = "^2.0.0"
 rdchiral = { git = "https://github.com/connorcoley/rdchiral.git" }
@@ -18,6 +18,8 @@ py7zr = "^0.18.7"
 Deprecated = "^1.2.13"
 Sphinx = "^5.0.1"
 scikit-learn = "^1.1.1"
+jupyterlab = "^3.4.5"
+xmltodict = "^0.13.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.2"

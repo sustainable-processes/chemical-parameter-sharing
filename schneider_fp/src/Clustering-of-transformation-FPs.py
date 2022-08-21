@@ -20,16 +20,21 @@ import utilsFunctions
 # In[2]:
 
 
-rcParams.update({'font.size': 14})
+# rcParams.update({'font.size': 14})
 
 
 # In[3]:
 
 
 dataDir = "../data/"
-reaction_types = cPickle.load(file(dataDir+"reactionTypes_training_test_set_patent_data.pkl"))
-names_rTypes = cPickle.load(file(dataDir+"names_rTypes_classes_superclasses_training_test_set_patent_data.pkl"))
+with open(dataDir+"reactionTypes_training_test_set_patent_data.pkl", 'rb') as f:
+    ff = f.read().replace(b'\r\n', b'\n')
+    reaction_types = cPickle.loads(ff)
 
+
+with open(dataDir+"names_rTypes_classes_superclasses_training_test_set_patent_data.pkl", 'rb') as f:
+    ff = f.read().replace(b'\r\n', b'\n')
+    names_rTypes = cPickle.loads(ff)
 
 # Load the transformation FPs 
 
@@ -50,7 +55,7 @@ while 1:
     fps.append([idx,lbl,cls,fp_AP3])
     idx+=1
     if not lineNo%10000:
-        print "Done "+str(lineNo)
+        print("Done "+str(lineNo))
 
 
 # Build a subset of the fingerprints (training set) (10000 FPs) for efficiency reasons.

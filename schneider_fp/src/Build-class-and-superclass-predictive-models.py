@@ -34,9 +34,13 @@ import utilsFunctions
 
 dataDir = "../data/"
 with open(dataDir+"reactionTypes_training_test_set_patent_data.pkl", 'rb') as f:
-    reaction_types = cPickle.load(f)
+    ff = f.read().replace(b'\r\n', b'\n')
+    reaction_types = cPickle.loads(ff)
+
+
 with open(dataDir+"names_rTypes_classes_superclasses_training_test_set_patent_data.pkl", 'rb') as f:
-    names_rTypes = cPickle.load(f)
+    ff = f.read().replace(b'\r\n', b'\n')
+    names_rTypes = cPickle.loads(ff)
 
 
 # Load the AP3 and agent feature fingerprint
@@ -330,5 +334,7 @@ cmat_fp_AP3_feature = utilsFunctions.evaluateModel(clf2, testFps_AP3_agentFeatur
 
 utilsFunctions.labelled_cmat(cmat_fp_AP3_feature,rsclasses,figsize=(16,12), labelExtras=names_rTypes)
 
+
+# %%
 
 # %%

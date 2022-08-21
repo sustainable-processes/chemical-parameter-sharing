@@ -56,11 +56,11 @@ while 1:
         params.agentWeight=1
         fp_wA3 = AllChem.CreateDifferenceFingerprintForReaction(rxn, params)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue;
     cPickle.dump((lbl,klass,fp_woA,fp_wA1,fp_wA2,fp_wA3),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 infile.close()
 pklfile.close()
 
@@ -103,11 +103,11 @@ while 1:
         params.agentWeight=1
         fp_wA3 = AllChem.CreateDifferenceFingerprintForReaction(rxn, params)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue;
     cPickle.dump((lbl,klass,fp_woA,fp_wA1,fp_wA2,fp_wA3),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 infile.close()
 pklfile.close()
 
@@ -134,11 +134,11 @@ while 1:
         fp_woA = AllChem.CreateDifferenceFingerprintForReaction(rxn, params)
         fp_featureAgent = createFingerprintsReaction.create_agent_feature_FP(rxn)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue;
     cPickle.dump((lbl,klass,fp_woA,fp_featureAgent),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 infile.close()
 pklfile.close()
 
@@ -167,11 +167,11 @@ while 1:
         if fp_MG2_agents is None:
             fp_MG2_agents = DataStructs.UIntSparseIntVect(4096)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue;
     cPickle.dump((lbl,klass,fp_woA,fp_MG2_agents),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 infile.close()
 pklfile.close()
 
@@ -198,11 +198,13 @@ while 1:
         fp_woA = AllChem.CreateDifferenceFingerprintForReaction(rxn, params)
         fp_dictinarybased_agents = createFingerprintsReaction.create_agent_dictionary_FP(rxn)
     except:
-        print "Cannot build fingerprint/reaction of: %s\n"%smi
+        print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue;
     cPickle.dump((lbl,klass,fp_woA,fp_dictinarybased_agents),pklfile,2)
     if not lineNo%5000:
-        print "Done: %d"%lineNo
+        print("Done: %d"%lineNo)
 infile.close()
 pklfile.close()
 
+
+# %%
