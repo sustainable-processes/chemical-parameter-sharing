@@ -29,4 +29,6 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Data: USPTO
     - Format: SMILES reaction string
 2) Reaction clustering
+    - Clustering rxn FP (schneider)
+    - Meta learning? https://lilianweng.github.io/posts/2018-11-30-meta-learning/
 3) NN condition prediction conditioned on reaction class
