@@ -28,7 +28,10 @@ Then execute the following commands in the root of the repository (stolen from: 
 1) Data handling
     - Data: USPTO
     - Format: SMILES reaction string
+    - https://molecularai.github.io/reaction_utils/uspto.html
 2) Reaction clustering
     - Clustering rxn FP (schneider)
     - Meta learning? https://lilianweng.github.io/posts/2018-11-30-meta-learning/
+    - Rxn templates matching
 3) NN condition prediction conditioned on reaction class
+    - Hard vs soft parameter sharing: https://avivnavon.github.io/blog/parameter-sharing-in-deep-learning/
