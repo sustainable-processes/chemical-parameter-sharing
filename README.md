@@ -36,3 +36,15 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Rxn templates matching
 3) NN condition prediction conditioned on reaction class
     - Hard vs soft parameter sharing: https://avivnavon.github.io/blog/parameter-sharing-in-deep-learning/
+    
+# Timeline
+
+- By end of Nov: Complete 1 full path through the pipeline, choosing the easiest options for cleaning data, clustering, and NN. Plot our first parity plot
+- December: Perform case study on rxn with only little data (e.g. cyclopropanation? Alexander should suggest a reaction). Consider 3 cases, and if outperformance is shown, work on conference draft:
+    - Feed all data to NN
+    - Feed only data about said reaction to NN (LOOCV)
+    - Parameter sharing
+- Jan-Feb: Add features to pipeline, e.g. different data sources (Reaxys & pistachio), different methods of parameter sharing & clustering
+- March-April: Draft paper
+    
+    
