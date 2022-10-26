@@ -28,7 +28,8 @@ Then execute the following commands in the root of the repository (stolen from: 
 1) Data handling
     - Data: USPTO
     - Format: SMILES reaction string
-    - https://molecularai.github.io/reaction_utils/uspto.html
+    - Cleaning: https://molecularai.github.io/reaction_utils/uspto.html
+    - Cleaning: https://github.com/rxn4chemistry/rxn-reaction-preprocessing
     - Smarts viewer: https://pubs.acs.org/doi/full/10.1021/acs.jcim.2c00992 (https://smarts.plus)
 2) Reaction clustering
     - Clustering rxn FP (schneider)
