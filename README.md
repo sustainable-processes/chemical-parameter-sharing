@@ -38,6 +38,7 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Novel rxn fp https://www.nature.com/articles/s42256-020-00284-w
 3) NN condition prediction conditioned on reaction class
     - Hard vs soft parameter sharing: https://avivnavon.github.io/blog/parameter-sharing-in-deep-learning/
+    - Condition prediction: https://github.com/Coughy1991/Reaction_condition_recommendation/tree/64f151e302abcb87e0a14088e08e11b4cea8d5ab
     
 # Timeline
 
