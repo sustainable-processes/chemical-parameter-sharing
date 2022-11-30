@@ -114,8 +114,9 @@ while 1:
 
 infile = gzip.open(dataDir+'unclassified_reactions_patent_data.pkl.gz', 'rb')
 pklfile = gzip.open(dataDir+'transformationFPs_agentFPs_external_test_set_B.pkl.gz','wb+')
-
+#%%
 lineNo=0
+reactions = []
 while 1:
     lineNo+=1
     try:
@@ -129,7 +130,8 @@ while 1:
     except:
         print("Cannot build fingerprint/reaction of: %s\n"%smi)
         continue
-    cPickle.dump((lbl,smi,fp_AP3,fp_featureAgent),pklfile,2)
+    #cPickle.dump((lbl,smi,fp_AP3,fp_featureAgent),pklfile,2)
+    reactions += [(lbl,smi,fp_AP3,fp_featureAgent)]
     if not lineNo%5000:
         print("Done: %d"%lineNo)
 
