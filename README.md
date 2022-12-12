@@ -49,5 +49,7 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Parameter sharing
 - Jan-Feb: Add features to pipeline, e.g. different data sources (Reaxys & pistachio), different methods of parameter sharing & clustering
 - March-April: Draft paper
+    - Example Neurips paper: https://proceedings.neurips.cc/paper/2021/file/884d247c6f65a96a7da4d1105d584ddd-Paper.pdf
+    
     
     
