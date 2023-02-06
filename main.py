@@ -284,7 +284,7 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
 
 # experiment to test if the model is configured correctly and the impact of adding more targets into the loss function
 
-cut_off = 100
+cut_off = 100000
 
 train_data = {
     "product_fp": train_product_fp[:cut_off],
@@ -297,7 +297,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = 500
+cut_off = 10000
 
 val_data = {
     "product_fp": val_product_fp[:cut_off],
@@ -316,8 +316,8 @@ targets=[
     "solvent_1",
     "solvent_2",
     "reagents_1",
-    "reagents_2",
-    "temperature",
+    # "reagents_2",
+    # "temperature",
 ]
 
 _targets = []
@@ -341,8 +341,8 @@ for t in targets:
     losses, acc_metrics = train_loop(
         model=m, 
         train_data=train_data, 
-        epochs=10,
-        batch_size=1.0,
+        epochs=20,
+        batch_size=0.25,
         loss_fn=torch.nn.CrossEntropyLoss(), 
         optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
         targets=_targets,
@@ -366,16 +366,23 @@ for t in targets:
 
 # %%
 
+f,ax = plt.subplots(2,2, figsize=(20,10))
+
 for t in _targets_cat_losses:
-    plt.plot(_targets_cat_losses[t]["train"], label=f"{t} train")
-    # plt.plot(_targets_cat_losses[t]["val"], label=f"{t} val")
-plt.legend()
-
-# %%
-
+    ax[0][0].plot(_targets_cat_losses[t]["train"], label=f"{t} train")
+ax[0][0].legend()
+ax[0][0].set_title("train loss")
+for t in _targets_cat_losses:
+    ax[0][1].plot(_targets_cat_losses[t]["val"], label=f"{t} val")
+ax[0][1].legend()
+ax[0][1].set_title("val loss")
 for t in _targets_cat_accs:
-    plt.plot(_targets_cat_accs[t]['top5']["train"], label=f"{t} train")
-    # plt.plot(_targets_cat_accs[t]['top5']["val"], label=f"{t} val")
-plt.legend()
+    ax[1][0].plot(_targets_cat_accs[t]['top5']["train"], label=f"{t} train")
+ax[1][0].legend()
+ax[1][0].set_title("train acc")
+for t in _targets_cat_accs:
+    ax[1][1].plot(_targets_cat_accs[t]['top5']["val"], label=f"{t} val")
+ax[1][1].legend()
+ax[1][1].set_title("val acc")
 
 # %%
