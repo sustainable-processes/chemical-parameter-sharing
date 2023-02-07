@@ -1,24 +1,23 @@
 # %%
 import pathlib
-import typing
 
 import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 
-import data
-import ohe
-import model
-import fit
+import src.reactions.get
+import src.learn.ohe
+import src.learn.model
+import src.learn.fit
 
 
-df = data.get_df(
+df = src.reactions.get.get_reaction_df(
     cleaned_data_path = pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
     rxn_classes_path = pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
 )
 
-mask = data.get_classified_rxn_data_mask(df)
+mask = src.reactions.get.get_classified_rxn_data_mask(df)
 
 #unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -59,13 +58,12 @@ train_rxn_diff_fp = torch.Tensor(rxn_diff_fp[train_idx])
 val_product_fp = torch.Tensor(product_fp[val_idx])
 val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
-
-train_catalyst, val_catalyst, cat_enc = ohe.apply_train_ohe_fit(df[['catalyst_0']], train_idx, val_idx)
-train_solvent_0, val_solvent_0, sol0_enc = ohe.apply_train_ohe_fit(df[['solvent_0']], train_idx, val_idx)
-train_solvent_1, val_solvent_1, sol1_enc = ohe.apply_train_ohe_fit(df[['solvent_1']], train_idx, val_idx)
-train_reagents_0, val_reagents_0, reag0_enc = ohe.apply_train_ohe_fit(df[['reagents_0']], train_idx, val_idx)
-train_reagents_1, val_reagents_1, reag1_enc = ohe.apply_train_ohe_fit(df[['reagents_1']], train_idx, val_idx)
-train_temperature, val_temperature, temp_enc = ohe.apply_train_ohe_fit(df[['temperature_0']].fillna(-1), train_idx, val_idx)
+train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(df[['catalyst_0']], train_idx, val_idx)
+train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_0']], train_idx, val_idx)
+train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_1']], train_idx, val_idx)
+train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_0']], train_idx, val_idx)
+train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_1']], train_idx, val_idx)
+train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(df[['temperature_0']].fillna(-1), train_idx, val_idx)
 
 del df
 
@@ -73,10 +71,8 @@ print("Loaded data")
 
 # %%
 
-# experiment to test if the model is configured correctly and the impact of adding more targets into the loss function
 
 cut_off = 100
-
 train_data = {
     "product_fp": train_product_fp[:cut_off],
     "rxn_diff_fp": train_rxn_diff_fp[:cut_off],
@@ -88,8 +84,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = 100
-
+cut_off = 10000
 val_data = {
     "product_fp": val_product_fp[:cut_off],
     "rxn_diff_fp": val_rxn_diff_fp[:cut_off],
@@ -100,6 +95,21 @@ val_data = {
     "reagents_2": val_reagents_1[:cut_off],
     "temperature": val_temperature[:cut_off],
 }
+
+m = src.learn.model.ColeyModel(
+    product_fp_dim=train_data['product_fp'].shape[-1],
+    rxn_diff_fp_dim=train_data['rxn_diff_fp'].shape[-1],
+    cat_dim=train_data['catalyst'].shape[-1],
+    sol1_dim=train_data['solvent_1'].shape[-1],
+    sol2_dim=train_data['solvent_2'].shape[-1],
+    reag1_dim=train_data['reagents_1'].shape[-1],
+    reag2_dim=train_data['reagents_2'].shape[-1],
+    temp_dim=train_data['temperature'].shape[-1],
+)
+
+pred = m.forward_dict(data=train_data)
+print("true", pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+print("pred", pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
 
 
 targets=[
@@ -120,7 +130,7 @@ for t in targets:
     print(t)
     _targets.append(t)
 
-    m = model.ColeyModel(
+    m = src.learn.model.ColeyModel(
         product_fp_dim=train_data['product_fp'].shape[-1],
         rxn_diff_fp_dim=train_data['rxn_diff_fp'].shape[-1],
         cat_dim=train_data['catalyst'].shape[-1],
@@ -131,10 +141,10 @@ for t in targets:
         temp_dim=train_data['temperature'].shape[-1],
     )
 
-    losses, acc_metrics = fit.train_loop(
+    losses, acc_metrics = src.learn.fit.train_loop(
         model=m, 
         train_data=train_data, 
-        epochs=20,
+        epochs=5,
         batch_size=0.25,
         loss_fn=torch.nn.CrossEntropyLoss(), 
         optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),

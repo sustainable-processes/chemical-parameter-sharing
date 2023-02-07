@@ -1,21 +1,17 @@
 import pathlib
-import multiprocessing
-import typing
-from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
-
-import fingerprint
 
 
-def get_df(
+def get_reaction_df(
     cleaned_data_path: pathlib.Path = pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
     rxn_classes_path: pathlib.Path = pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
+    verbose=False,
 ) -> pd.DataFrame:
     cleaned_df = pd.read_pickle(cleaned_data_path)
 
-    print(f"{cleaned_df.shape=}")
+    if verbose:
+        print(f"{cleaned_df.shape=}")
 
     # read in the reaction classes
     with open(rxn_classes_path) as f:
@@ -41,7 +37,8 @@ def get_df(
 
     # combine the two dfs
     data_df_temp = cleaned_df.merge(rxn_classes_df, how='inner', left_on='mapped_rxn_0', right_on='mapped_rxn')
-    len(f"{data_df_temp=}")
+    if verbose:
+        print(len(f"{data_df_temp=}"))
 
     # I used the following command to generate the rxn classification:
     # ./namerxn -nomap data/mapped_rxn.smi data/classified_rxn.smi
@@ -52,11 +49,13 @@ def get_df(
     data_df['rxn_class'] = rxn_classes_df['rxn_class']
     data_df = data_df.dropna(subset=['rxn_class'])
     data_df.reset_index()
-    print(f"{len(data_df)=}")
+    if verbose:
+        print(f"{len(data_df)=}")
 
     # remove all the unclassified reactions, ie where rxn_class = '0.0'
     remove_unclassified_rxn_data_df = data_df[~data_df.rxn_class.str.contains("0.0")]
-    print(f"{len(remove_unclassified_rxn_data_df)=}")
+    if verbose:
+        print(f"{len(remove_unclassified_rxn_data_df)=}")
 
 
     # print out all catalysts
@@ -123,7 +122,8 @@ def get_df(
         if r ==r:
             if 'pd' in r or 'Pd' in r or 'palladium' in r or 'Palladium' in r:
                 count +=1
-    print('Number of Pd in the reagents columns: ', count )
+    if verbose:
+        print('Number of Pd in the reagents columns: ', count )
 
     # Quite a few of the rows have Pd as a reagent. Probably worth going through all of them, and if the value in reagent_0 is already in catalyst_0, then replace the reagent value with np.NaN
     df3["reagents_0"] = df3.apply(lambda x: np.nan if (pd.notna(x["reagents_0"]) and pd.notna(x["catalyst_0"]) and x["reagents_0"] in x["catalyst_0"]) else x["reagents_0"], axis=1)
@@ -143,98 +143,14 @@ def get_df(
             if 'Pd' in r:
                 print(r)
                 count +=1
-    print(f'Number of Pd in the reagents columns: {count}')
 
-    print(f"{len(df3)=}")
+    if verbose:
+        print(f'Number of Pd in the reagents columns: {count}')
+        print(f"{len(df3)=}")
 
     df3['rxn_super_class'] = df3['rxn_class'].str.rsplit('.', expand=True)[0].astype(int)
     return df3
-
-
-def generate_data(
-    cleaned_data_path: pathlib.Path = pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
-    rxn_classes_path: pathlib.Path = pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
-    diff_fp_path: typing.Optional[pathlib.Path] = pathlib.Path("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl"),
-    product_fp_path: typing.Optional[pathlib.Path] = pathlib.Path("data/ORD_USPTO/USPTO_product_fp.pkl"),
-    radius:int=3,
-    nBits:int=512,
-):
-
-    df = get_df(
-        cleaned_data_path=cleaned_data_path,
-        rxn_classes_path=rxn_classes_path,
-    )
-
-    # test_df = df['rxn_class'].str.rsplit(';', expand=True)
-    # 2.5% of reactions have been assigned 2 reaction classes. 3 or 4 reaction classes is very rare.
-
-    # calculate rxn difference fp
-    # converting one 500k by 2k list to array takes roughly 15s, so the whole thing should take about 2-3 min
-    # need to split into different cells for memory purposes
-
-    num_cores = multiprocessing.cpu_count()
-    inputs = tqdm(df['product_0'])
-    p0 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['product_1'])
-    p1 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['product_2'])
-    p2 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['product_3'])
-    p3 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    ar_p0 = np.array(p0)
-    ar_p1 = np.array(p1)
-    ar_p2 = np.array(p2)
-    ar_p3 = np.array(p3)
-
-    product_fp = ar_p0 + ar_p1 + ar_p2 + ar_p3
-
-    del ar_p0, ar_p1, ar_p2, ar_p3
-    del p0, p1, p2, p3
-
-    num_cores = multiprocessing.cpu_count()
-    inputs = tqdm(df['reactant_0'])
-    r0 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['reactant_1'])
-    r1 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['reactant_2'])
-    r2 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    inputs = tqdm(df['reactant_3'])
-    r3 = Parallel(n_jobs=num_cores)(delayed(fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
-
-    ar_r0 = np.array(r0)
-    ar_r1 = np.array(r1)
-    ar_r2 = np.array(r2)
-    ar_r3 = np.array(r3)
-
-    rxn_diff_fp = product_fp - ar_r0 - ar_r1 - ar_r2 - ar_r3
-
-    del ar_r0, ar_r1, ar_r2, ar_r3
-    del r0, r1, r2, r3
-
-    #save to pickle
-    if diff_fp_path is not None:
-        np.save(diff_fp_path, rxn_diff_fp)
-    if product_fp_path is not None:
-        np.save(product_fp_path, product_fp)
-    return rxn_diff_fp, product_fp
     
 
 def get_classified_rxn_data_mask(data_df):
     return ~data_df.rxn_class.str.contains("0.0")
-    
-if __name__ == "__main__":
-    generate_data(
-        cleaned_data_path=pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
-        rxn_classes_path=pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
-        diff_fp_path=pathlib.Path("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl"),
-        product_fp_path=pathlib.Path("data/ORD_USPTO/USPTO_product_fp.pkl"),
-        radius=3,
-        nBits=512,
-    )
