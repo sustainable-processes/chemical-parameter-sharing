@@ -50,18 +50,11 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
                 batch_idxes = idxes
             prev_idx = idx
 
-            output = model.forward(
-                product_fp=train_data['product_fp'][batch_idxes],
-                rxn_diff_fp=train_data['rxn_diff_fp'][batch_idxes],
-                cat=train_data['catalyst'][batch_idxes],
-                sol1=train_data['solvent_1'][batch_idxes],
-                sol2=train_data['solvent_2'][batch_idxes],
-                reag1=train_data['reagents_1'][batch_idxes],
-                reag2=train_data['reagents_2'][batch_idxes],
+            pred = model.forward_dict(
+                data=train_data,
+                indexes=batch_idxes,
                 training=True,
             )
-            pred = {}
-            pred['catalyst'], pred['solvent_1'], pred['solvent_2'], pred['reagents_1'], pred['reagents_2'], pred['temperature'] = output
 
             loss = 0
             for target in targets:  # we can change targets to be loss functions in the future if the loss function changes
@@ -98,18 +91,11 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
         # evaluate with validation data
         if val_data is not None:
             with torch.no_grad():
-                output = model.forward(
-                    product_fp=val_data['product_fp'],
-                    rxn_diff_fp=val_data['rxn_diff_fp'],
-                    cat=val_data['catalyst'],
-                    sol1=val_data['solvent_1'],
-                    sol2=val_data['solvent_2'],
-                    reag1=val_data['reagents_1'],
-                    reag2=val_data['reagents_2'],
+                pred = model.forward_dict(
+                    data=val_data,
+                    indexes=slice(None),
                     training=False,
-                )   
-                pred = {}
-                pred['catalyst'], pred['solvent_1'], pred['solvent_2'], pred['reagents_1'], pred['reagents_2'], pred['temperature'] = output 
+                )
 
                 loss = 0
                 for target in targets:  # we can change targets to be loss functions in the future if the loss function changes

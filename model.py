@@ -211,3 +211,32 @@ class ColeyModel(torch.nn.Module):
         temp_output = self.temp_downstream(concat_cat_sol1_sol2_reag1_reag2_temp, training=training)
 
         return cat_output, sol1_output, sol2_output, reag1_output, reag2_output, temp_output
+
+
+    def forward_dict(
+        self,
+        *,
+        data,
+        training=True,
+        force_teach=True,
+        hard_select=True,
+        stochastic_mid=True,
+        indexes=slice(None),
+    ):
+
+        output = self.forward(
+            product_fp=data['product_fp'][indexes],
+            rxn_diff_fp=data['rxn_diff_fp'][indexes],
+            cat=data['catalyst'][indexes],
+            sol1=data['solvent_1'][indexes],
+            sol2=data['solvent_2'][indexes],
+            reag1=data['reagents_1'][indexes],
+            reag2=data['reagents_2'][indexes],
+            training=training,
+            force_teach=force_teach,
+            hard_select=hard_select,
+            stochastic_mid=stochastic_mid,
+        )
+        pred = {}
+        pred['catalyst'], pred['solvent_1'], pred['solvent_2'], pred['reagents_1'], pred['reagents_2'], pred['temperature'] = output
+        return pred

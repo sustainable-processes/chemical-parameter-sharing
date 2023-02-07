@@ -73,18 +73,7 @@ print("Loaded data")
 # %%
 
 
-m = model.ColeyModel(
-    product_fp_dim=train_product_fp.shape[-1],
-    rxn_diff_fp_dim=train_rxn_diff_fp.shape[-1],
-    cat_dim=train_catalyst.shape[-1],
-    sol1_dim=train_solvent_0.shape[-1],
-    sol2_dim=train_solvent_1.shape[-1],
-    reag1_dim=train_reagents_0.shape[-1],
-    reag2_dim=train_reagents_1.shape[-1],
-    temp_dim=train_temperature.shape[-1],
-)
-
-cut_off = None#100000
+cut_off = 100
 train_data = {
     "product_fp": train_product_fp[:cut_off],
     "rxn_diff_fp": train_rxn_diff_fp[:cut_off],
@@ -108,25 +97,46 @@ val_data = {
     "temperature": val_temperature[:cut_off],
 }
 
+m = model.ColeyModel(
+    product_fp_dim=train_data['product_fp'].shape[-1],
+    rxn_diff_fp_dim=train_data['rxn_diff_fp'].shape[-1],
+    cat_dim=train_data['catalyst'].shape[-1],
+    sol1_dim=train_data['solvent_1'].shape[-1],
+    sol2_dim=train_data['solvent_2'].shape[-1],
+    reag1_dim=train_data['reagents_1'].shape[-1],
+    reag2_dim=train_data['reagents_2'].shape[-1],
+    temp_dim=train_data['temperature'].shape[-1],
+)
+
+pred = m.forward_dict(data=train_data)
+print("true", pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+print("pred", pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+
 
 losses, acc_metrics = fit.train_loop(
     model=m, 
     train_data=train_data, 
-    epochs=20,
+    epochs=200,
     batch_size=0.05,
     loss_fn=torch.nn.CrossEntropyLoss(), 
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     targets=[
         "catalyst",
-        "solvent_1",
-        "solvent_2",
-        "reagents_1",
-        "reagents_2",
-        "temperature",
+        # "solvent_1",
+        # "solvent_2",
+        # "reagents_1",
+        # "reagents_2",
+        # "temperature",
     ],
     val_data=val_data,
 )
 
+pred = m.forward_dict(data=train_data)
+print("true", pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+print("pred", pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+
+plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
+plt.plot(losses['catalyst']["val"], label="catalyst val"); #plt.legend()
 
 # %%
 plt.plot(losses['sum']["train"], label="sum train"); plt.legend()
@@ -145,3 +155,10 @@ plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); #plt.legend()
 plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
 plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
 
+# %%
+
+pred = m.forward_dict(data=train_data)
+print("true", pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+print("pred", pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+
+# %%

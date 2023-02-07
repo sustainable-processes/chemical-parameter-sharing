@@ -69,14 +69,13 @@ train_temperature, val_temperature, temp_enc = ohe.apply_train_ohe_fit(df[['temp
 
 del df
 
-
 print("Loaded data")
 
 # %%
 
 # experiment to test if the model is configured correctly and the impact of adding more targets into the loss function
 
-cut_off = 1000
+cut_off = 100
 
 train_data = {
     "product_fp": train_product_fp[:cut_off],
@@ -89,7 +88,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = None
+cut_off = 100
 
 val_data = {
     "product_fp": val_product_fp[:cut_off],
@@ -108,9 +107,11 @@ targets=[
     "solvent_1",
     "solvent_2",
     "reagents_1",
-    # "reagents_2",
-    # "temperature",
+    "reagents_2",
+    "temperature",
 ]
+
+# %%
 
 _targets = []
 _targets_cat_losses = {}
@@ -120,14 +121,14 @@ for t in targets:
     _targets.append(t)
 
     m = model.ColeyModel(
-        product_fp_dim=train_product_fp.shape[-1],
-        rxn_diff_fp_dim=train_rxn_diff_fp.shape[-1],
-        cat_dim=train_catalyst.shape[-1],
-        sol1_dim=train_solvent_0.shape[-1],
-        sol2_dim=train_solvent_1.shape[-1],
-        reag1_dim=train_reagents_0.shape[-1],
-        reag2_dim=train_reagents_1.shape[-1],
-        temp_dim=train_temperature.shape[-1],
+        product_fp_dim=train_data['product_fp'].shape[-1],
+        rxn_diff_fp_dim=train_data['rxn_diff_fp'].shape[-1],
+        cat_dim=train_data['catalyst'].shape[-1],
+        sol1_dim=train_data['solvent_1'].shape[-1],
+        sol2_dim=train_data['solvent_2'].shape[-1],
+        reag1_dim=train_data['reagents_1'].shape[-1],
+        reag2_dim=train_data['reagents_2'].shape[-1],
+        temp_dim=train_data['temperature'].shape[-1],
     )
 
     losses, acc_metrics = fit.train_loop(
@@ -158,23 +159,37 @@ for t in targets:
 
 # %%
 
-f,ax = plt.subplots(2,2, figsize=(20,10))
+f,ax = plt.subplots(3,2, figsize=(20,10))
 
 for t in _targets_cat_losses:
-    ax[0][0].plot(_targets_cat_losses[t]["train"], label=f"{t} train")
+    ax[0][0].plot(_targets_cat_losses[t]["train"], label=f"{t}")
 ax[0][0].legend()
 ax[0][0].set_title("train loss")
 for t in _targets_cat_losses:
-    ax[0][1].plot(_targets_cat_losses[t]["val"], label=f"{t} val")
+    ax[0][1].plot(_targets_cat_losses[t]["val"], label=f"{t}")
 ax[0][1].legend()
 ax[0][1].set_title("val loss")
 for t in _targets_cat_accs:
-    ax[1][0].plot(_targets_cat_accs[t]['top5']["train"], label=f"{t} train")
+    ax[1][0].plot(_targets_cat_accs[t]['top1']["train"], label=f"{t}")
 ax[1][0].legend()
-ax[1][0].set_title("train acc")
+ax[1][0].set_title("train acc top 1")
 for t in _targets_cat_accs:
-    ax[1][1].plot(_targets_cat_accs[t]['top5']["val"], label=f"{t} val")
+    ax[1][1].plot(_targets_cat_accs[t]['top1']["val"], label=f"{t}")
 ax[1][1].legend()
-ax[1][1].set_title("val acc")
+ax[1][1].set_title("val acc top 1")
+for t in _targets_cat_accs:
+    ax[2][0].plot(_targets_cat_accs[t]['top5']["train"], label=f"{t}")
+ax[2][0].legend()
+ax[2][0].set_title("train acc top 5")
+for t in _targets_cat_accs:
+    ax[2][1].plot(_targets_cat_accs[t]['top5']["val"], label=f"{t}")
+ax[2][1].legend()
+ax[2][1].set_title("val acc top 5")
+
+# %%
+
+pred = m.forward_dict(data=train_data)
+print("true", pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
+print("pred", pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0], sep="\n")
 
 # %%
