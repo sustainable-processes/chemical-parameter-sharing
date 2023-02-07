@@ -12,8 +12,6 @@ import src.learn.model
 import src.learn.fit
 import src.learn.metrics
 
-import config.single_vs_multi
-
 
 df = src.reactions.get.get_reaction_df(
     cleaned_data_path = pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
@@ -41,14 +39,14 @@ if True:
 assert df.shape[0] == rxn_diff_fp.shape[0]
 assert df.shape[0] == product_fp.shape[0]
 
-rng = np.random.default_rng(config.single_vs_multi.seed)
+rng = np.random.default_rng(12345)
 
 
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = config.single_vs_multi.train_test_split
-train_val_split = config.single_vs_multi.train_val_split
+train_test_split = 0.9
+train_val_split = 0.8
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -76,7 +74,7 @@ print("Loaded data")
 # %%
 
 
-cut_off = config.single_vs_multi.train_cutoff
+cut_off = 5_000
 train_data = {
     "product_fp": train_product_fp[:cut_off],
     "rxn_diff_fp": train_rxn_diff_fp[:cut_off],
@@ -88,7 +86,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = config.single_vs_multi.val_cutoff
+cut_off = None
 val_data = {
     "product_fp": val_product_fp[:cut_off],
     "rxn_diff_fp": val_rxn_diff_fp[:cut_off],
@@ -128,15 +126,22 @@ val_acc = src.learn.metrics.get_topk_acc(
 print(f"untrained catalyst top 1 acc: {train_acc[1]=} {val_acc[1]=}")
 print(f"untrained catalyst top 5 acc: {train_acc[5]=} {val_acc[5]=}")
 
-targets=config.single_vs_multi.targets
+targets=[
+    "catalyst",
+    "solvent_1",
+    "solvent_2",
+    "reagents_1",
+    "reagents_2",
+    "temperature",
+]
 
 losses, acc_metrics = src.learn.fit.train_loop(
     model=m, 
     train_data=train_data, 
-    epochs=config.single_vs_multi.epochs,
-    batch_size=config.single_vs_multi.batch_size / 12,
+    epochs=10,
+    batch_size=0.05,
     loss_fn=torch.nn.CrossEntropyLoss(), 
-    optimizer=torch.optim.Adam(m.parameters(), lr=config.single_vs_multi.lr),
+    optimizer=torch.optim.Adam(m.parameters(), lr=1e-2),
     targets=targets,
     val_data=val_data,
 )
@@ -157,10 +162,6 @@ val_acc = src.learn.metrics.get_topk_acc(
 )
 print(f"trained catalyst top 1 acc: {train_acc[1]=} {val_acc[1]=}")
 print(f"trained catalyst top 5 acc: {train_acc[5]=} {val_acc[5]=}")
-
-if "catalyst" in targets:
-    plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
-    plt.plot(losses['catalyst']["val"], label="catalyst val"); #plt.legend()
 
 # %%
 plt.plot(losses['sum']["train"], label="sum train"); plt.legend()

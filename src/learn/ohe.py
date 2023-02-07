@@ -1,3 +1,5 @@
+import typing
+
 import sklearn
 import pandas as pd
 import torch
@@ -37,11 +39,11 @@ class GetDummies(sklearn.base.TransformerMixin):
         return tuple(self.final_columns)
 
 
-def apply_train_ohe_fit(df, train_idx, val_idx, to_tensor:bool = True):
+def apply_train_ohe_fit(df, train_idx, val_idx, tensor_func: typing.Optional[typing.Callable] = torch.Tensor):
     enc = GetDummies()
     _ = enc.fit(df.iloc[train_idx])
     _ohe = enc.transform(df)
     _tr, _val = _ohe.iloc[train_idx].values, _ohe.iloc[val_idx].values
-    if to_tensor:
-        _tr, _val = torch.Tensor(_tr), torch.Tensor(_val)
+    if tensor_func is not None:
+        _tr, _val = tensor_func(_tr), tensor_func(_val)
     return _tr, _val, enc
