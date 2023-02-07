@@ -59,6 +59,7 @@ train_rxn_diff_fp = torch.Tensor(rxn_diff_fp[train_idx])
 val_product_fp = torch.Tensor(product_fp[val_idx])
 val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
+
 train_catalyst, val_catalyst, cat_enc = ohe.apply_train_ohe_fit(df[['catalyst_0']], train_idx, val_idx)
 train_solvent_0, val_solvent_0, sol0_enc = ohe.apply_train_ohe_fit(df[['solvent_0']], train_idx, val_idx)
 train_solvent_1, val_solvent_1, sol1_enc = ohe.apply_train_ohe_fit(df[['solvent_1']], train_idx, val_idx)
@@ -68,23 +69,15 @@ train_temperature, val_temperature, temp_enc = ohe.apply_train_ohe_fit(df[['temp
 
 del df
 
+
 print("Loaded data")
 
 # %%
 
+# experiment to test if the model is configured correctly and the impact of adding more targets into the loss function
 
-m = model.ColeyModel(
-    product_fp_dim=train_product_fp.shape[-1],
-    rxn_diff_fp_dim=train_rxn_diff_fp.shape[-1],
-    cat_dim=train_catalyst.shape[-1],
-    sol1_dim=train_solvent_0.shape[-1],
-    sol2_dim=train_solvent_1.shape[-1],
-    reag1_dim=train_reagents_0.shape[-1],
-    reag2_dim=train_reagents_1.shape[-1],
-    temp_dim=train_temperature.shape[-1],
-)
+cut_off = 1000
 
-cut_off = None#100000
 train_data = {
     "product_fp": train_product_fp[:cut_off],
     "rxn_diff_fp": train_rxn_diff_fp[:cut_off],
@@ -96,7 +89,8 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = 10000
+cut_off = None
+
 val_data = {
     "product_fp": val_product_fp[:cut_off],
     "rxn_diff_fp": val_rxn_diff_fp[:cut_off],
@@ -109,39 +103,78 @@ val_data = {
 }
 
 
-losses, acc_metrics = fit.train_loop(
-    model=m, 
-    train_data=train_data, 
-    epochs=20,
-    batch_size=0.05,
-    loss_fn=torch.nn.CrossEntropyLoss(), 
-    optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
-    targets=[
-        "catalyst",
-        "solvent_1",
-        "solvent_2",
-        "reagents_1",
-        "reagents_2",
-        "temperature",
-    ],
-    val_data=val_data,
-)
+targets=[
+    "catalyst",
+    "solvent_1",
+    "solvent_2",
+    "reagents_1",
+    # "reagents_2",
+    # "temperature",
+]
+
+_targets = []
+_targets_cat_losses = {}
+_targets_cat_accs = {}
+for t in targets:
+    print(t)
+    _targets.append(t)
+
+    m = model.ColeyModel(
+        product_fp_dim=train_product_fp.shape[-1],
+        rxn_diff_fp_dim=train_rxn_diff_fp.shape[-1],
+        cat_dim=train_catalyst.shape[-1],
+        sol1_dim=train_solvent_0.shape[-1],
+        sol2_dim=train_solvent_1.shape[-1],
+        reag1_dim=train_reagents_0.shape[-1],
+        reag2_dim=train_reagents_1.shape[-1],
+        temp_dim=train_temperature.shape[-1],
+    )
+
+    losses, acc_metrics = fit.train_loop(
+        model=m, 
+        train_data=train_data, 
+        epochs=20,
+        batch_size=0.25,
+        loss_fn=torch.nn.CrossEntropyLoss(), 
+        optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
+        targets=_targets,
+        val_data=val_data,
+    )
+    _targets_cat_losses[t] = losses['catalyst']
+    _targets_cat_accs[t] = acc_metrics['catalyst']
+
+    f,ax = plt.subplots(1,3)
+    ax[0].plot(losses['sum']["train"], label="sum train")
+    ax[0].plot(losses['sum']["val"], label="sum val")
+    ax[1].plot(losses['catalyst']["train"], label="catalyst train")
+    ax[1].plot(losses['catalyst']["val"], label="catalyst val")
+    ax[2].plot(acc_metrics['catalyst']['top5']['train'], label="catalyst train 5acc")
+    ax[2].plot(acc_metrics['catalyst']['top5']['val'], label="catalyst val 5acc")
+    ax[0].legend()
+    ax[1].legend()
+    ax[2].legend()
+    plt.show()
 
 
 # %%
-plt.plot(losses['sum']["train"], label="sum train"); plt.legend()
-plt.plot(losses['sum']["val"], label="sum val"); plt.legend()
-# %%
-plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
-plt.plot(losses['catalyst']["val"], label="catalyst val"); #plt.legend()
-plt.plot(losses['solvent_1']["train"], label="solvent_1 train"); #plt.legend()
-plt.plot(losses['solvent_1']["val"], label="solvent_1 val"); #plt.legend()
-plt.plot(losses['solvent_2']["train"], label="solvent_2 train"); #plt.legend()
-plt.plot(losses['solvent_2']["val"], label="solvent_2 val"); #plt.legend()
-plt.plot(losses['reagents_1']["train"], label="reagents_1 train"); #plt.legend()
-plt.plot(losses['reagents_1']["val"], label="reagents_1 val"); #plt.legend()
-plt.plot(losses['reagents_2']["train"], label="reagents_2 train"); #plt.legend()
-plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); #plt.legend()
-plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
-plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
 
+f,ax = plt.subplots(2,2, figsize=(20,10))
+
+for t in _targets_cat_losses:
+    ax[0][0].plot(_targets_cat_losses[t]["train"], label=f"{t} train")
+ax[0][0].legend()
+ax[0][0].set_title("train loss")
+for t in _targets_cat_losses:
+    ax[0][1].plot(_targets_cat_losses[t]["val"], label=f"{t} val")
+ax[0][1].legend()
+ax[0][1].set_title("val loss")
+for t in _targets_cat_accs:
+    ax[1][0].plot(_targets_cat_accs[t]['top5']["train"], label=f"{t} train")
+ax[1][0].legend()
+ax[1][0].set_title("train acc")
+for t in _targets_cat_accs:
+    ax[1][1].plot(_targets_cat_accs[t]['top5']["val"], label=f"{t} val")
+ax[1][1].legend()
+ax[1][1].set_title("val acc")
+
+# %%

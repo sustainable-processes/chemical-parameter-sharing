@@ -1,5 +1,6 @@
 import sklearn
 import pandas as pd
+import torch
 
 
 class GetDummies(sklearn.base.TransformerMixin):
@@ -34,3 +35,13 @@ class GetDummies(sklearn.base.TransformerMixin):
     
     def get_feature_names(self):
         return tuple(self.final_columns)
+
+
+def apply_train_ohe_fit(df, train_idx, val_idx, to_tensor:bool = True):
+    enc = GetDummies()
+    _ = enc.fit(df.iloc[train_idx])
+    _ohe = enc.transform(df)
+    _tr, _val = _ohe.iloc[train_idx].values, _ohe.iloc[val_idx].values
+    if to_tensor:
+        _tr, _val = torch.Tensor(_tr), torch.Tensor(_val)
+    return _tr, _val, enc
