@@ -134,7 +134,7 @@ losses, acc_metrics = src.learn.fit.train_loop(
     model=m, 
     train_data=train_data, 
     epochs=config.single_vs_multi.epochs,
-    batch_size=config.single_vs_multi.batch_size / 12,
+    batch_size=config.single_vs_multi.batch_size / 11,
     loss_fn=torch.nn.CrossEntropyLoss(), 
     optimizer=torch.optim.Adam(m.parameters(), lr=config.single_vs_multi.lr),
     targets=targets,
@@ -166,29 +166,29 @@ if "catalyst" in targets:
 plt.plot(losses['sum']["train"], label="sum train"); plt.legend()
 plt.plot(losses['sum']["val"], label="sum val"); plt.legend()
 # %%
-if "catalyst" in targets:
-    plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
-    plt.plot(losses['catalyst']["val"], label="catalyst val"); plt.legend()
-    plt.show()
-if "solvent_1" in targets:
-    plt.plot(losses['solvent_1']["train"], label="solvent_1 train"); #plt.legend()
-    plt.plot(losses['solvent_1']["val"], label="solvent_1 val"); plt.legend()
-    plt.show()
-if "solvent_2" in targets:
-    plt.plot(losses['solvent_2']["train"], label="solvent_2 train"); #plt.legend()
-    plt.plot(losses['solvent_2']["val"], label="solvent_2 val"); plt.legend()
-    plt.show()
-if "reagents_1" in targets:
-    plt.plot(losses['reagents_1']["train"], label="reagents_1 train"); #plt.legend()
-    plt.plot(losses['reagents_1']["val"], label="reagents_1 val"); plt.legend()
-    plt.show()
-if "reagents_2" in targets:
-    plt.plot(losses['reagents_2']["train"], label="reagents_2 train"); #plt.legend()
-    plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); plt.legend()
-    plt.show()
-if "temperature" in targets:
-    plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
-    plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
-    plt.show()
+# if "catalyst" in targets:
+#     plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
+#     plt.plot(losses['catalyst']["val"], label="catalyst val"); plt.legend()
+#     plt.show()
+# if "solvent_1" in targets:
+#     plt.plot(losses['solvent_1']["train"], label="solvent_1 train"); #plt.legend()
+#     plt.plot(losses['solvent_1']["val"], label="solvent_1 val"); plt.legend()
+#     plt.show()
+# if "solvent_2" in targets:
+#     plt.plot(losses['solvent_2']["train"], label="solvent_2 train"); #plt.legend()
+#     plt.plot(losses['solvent_2']["val"], label="solvent_2 val"); plt.legend()
+#     plt.show()
+# if "reagents_1" in targets:
+#     plt.plot(losses['reagents_1']["train"], label="reagents_1 train"); #plt.legend()
+#     plt.plot(losses['reagents_1']["val"], label="reagents_1 val"); plt.legend()
+#     plt.show()
+# if "reagents_2" in targets:
+#     plt.plot(losses['reagents_2']["train"], label="reagents_2 train"); #plt.legend()
+#     plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); plt.legend()
+#     plt.show()
+# if "temperature" in targets:
+#     plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
+#     plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
+#     plt.show()
 
 # %%
