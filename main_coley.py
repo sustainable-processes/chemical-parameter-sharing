@@ -45,8 +45,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.1
-train_val_split = 0.1
+train_test_split = 0.9
+train_val_split = 0.9
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -60,13 +60,13 @@ train_rxn_diff_fp = tf.convert_to_tensor(rxn_diff_fp[train_idx])
 val_product_fp = tf.convert_to_tensor(product_fp[val_idx])
 val_rxn_diff_fp = tf.convert_to_tensor(rxn_diff_fp[val_idx])
 
-train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(df[['catalyst_0']], train_idx, val_idx, tensor_func=tf.convert_to_tensor)
-train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_0']], train_idx, val_idx, tensor_func=tf.convert_to_tensor)
-train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_1']], train_idx, val_idx, tensor_func=tf.convert_to_tensor)
-train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_0']], train_idx, val_idx, tensor_func=tf.convert_to_tensor)
-train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_1']], train_idx, val_idx, tensor_func=tf.convert_to_tensor)
-train_temperature = tf.convert_to_tensor(df['temperature_0'].iloc[train_idx].fillna(0.))
-val_temperature = tf.convert_to_tensor(df['temperature_0'].iloc[val_idx].fillna(0.))
+train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(df[['catalyst_0']].fillna("NULL"), train_idx, val_idx, tensor_func=tf.convert_to_tensor)
+train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_0']].fillna("NULL"), train_idx, val_idx, tensor_func=tf.convert_to_tensor)
+train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_1']].fillna("NULL"), train_idx, val_idx, tensor_func=tf.convert_to_tensor)
+train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_0']].fillna("NULL"), train_idx, val_idx, tensor_func=tf.convert_to_tensor)
+train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_1']].fillna("NULL"), train_idx, val_idx, tensor_func=tf.convert_to_tensor)
+train_temperature = tf.convert_to_tensor(df['temperature_0'].iloc[train_idx].fillna(-1.))
+val_temperature = tf.convert_to_tensor(df['temperature_0'].iloc[val_idx].fillna(-1.))
 
 del df
 

@@ -144,6 +144,8 @@ class ColeyModel(torch.nn.Module):
         reag1_dim,
         reag2_dim,
         temp_dim,
+        use_batchnorm=False,
+        dropout_prob=0.0
     ) -> None:
         super(ColeyModel, self).__init__()
         self.product_fp_dim = product_fp_dim
@@ -154,6 +156,8 @@ class ColeyModel(torch.nn.Module):
         self.reag1_dim = reag1_dim
         self.reag2_dim = reag2_dim
         self.temp_dim = temp_dim
+        self.use_batchnorm = use_batchnorm
+        self.dropout_prob = dropout_prob
 
         highway_dim = 0
         mid_dim = 1000
@@ -167,7 +171,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=True
+            stochastic_mid=True,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         )
         highway_dim += mid_dim
 
@@ -182,7 +188,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=False
+            stochastic_mid=False,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         ) 
         highway_dim += mid_dim
 
@@ -197,7 +205,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=False
+            stochastic_mid=False,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         ) 
         highway_dim += mid_dim
 
@@ -212,7 +222,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=False
+            stochastic_mid=False,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         ) 
         highway_dim += mid_dim
 
@@ -227,7 +239,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=False
+            stochastic_mid=False,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         ) 
         highway_dim += mid_dim
 
@@ -242,7 +256,9 @@ class ColeyModel(torch.nn.Module):
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
             downstream_output_act=torch.nn.Identity,
-            stochastic_mid=False
+            stochastic_mid=False,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob,
         )
         highway_dim += mid_dim
 

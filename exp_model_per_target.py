@@ -63,12 +63,12 @@ train_rxn_diff_fp = torch.Tensor(rxn_diff_fp[train_idx])
 val_product_fp = torch.Tensor(product_fp[val_idx])
 val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
-train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(df[['catalyst_0']], train_idx, val_idx)
-train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_0']], train_idx, val_idx)
-train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_1']], train_idx, val_idx)
-train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_0']], train_idx, val_idx)
-train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_1']], train_idx, val_idx)
-train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(df[['temperature_0']].fillna(-1), train_idx, val_idx)
+train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(df[['catalyst_0']].fillna("NULL"), train_idx, val_idx)
+train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_0']].fillna("NULL"), train_idx, val_idx)
+train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(df[['solvent_1']].fillna("NULL"), train_idx, val_idx)
+train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_0']].fillna("NULL"), train_idx, val_idx)
+train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(df[['reagents_1']].fillna("NULL"), train_idx, val_idx)
+train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(df[['temperature_0']].fillna(-1.), train_idx, val_idx)
 
 # del df
 
