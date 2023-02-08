@@ -43,8 +43,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.1
-train_val_split = 0.1
+train_test_split = 0.9
+train_val_split = 0.5
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -75,16 +75,6 @@ print("Loaded data")
 x_train_data = (
     train_product_fp, 
     train_rxn_diff_fp, 
-    train_catalyst, 
-    train_solvent_0, 
-    train_solvent_1, 
-    train_reagents_0, 
-    train_reagents_1, 
-)
-
-x_train_eval_data = (
-    train_product_fp, 
-    train_rxn_diff_fp, 
 )
 
 y_train_data = (
@@ -97,16 +87,6 @@ y_train_data = (
 )
 
 x_val_data = (
-    val_product_fp, 
-    val_rxn_diff_fp, 
-    val_catalyst, 
-    val_solvent_0, 
-    val_solvent_1, 
-    val_reagents_0, 
-    val_reagents_1, 
-)
-
-x_val_eval_data = (
     val_product_fp, 
     val_rxn_diff_fp, 
 )
@@ -132,8 +112,8 @@ model = src.coley_code.model.build_teacher_forcing_model(
     r2_dim=train_reagents_1.shape[-1], 
     N_h1=1024, 
     N_h2=100,
-    l2v=0, # TODO check what coef they used
-    mode=src.coley_code.model.TEACHER_FORCE,
+    l2v=0,
+    mode=src.coley_code.model.SOFT_SELECTION,
 )
 
 # we use a separate model for prediction because we use a recurrent setup for prediction
@@ -185,7 +165,7 @@ cat_pred = model(x_train_data)[0]
 print("true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
-cat_pred = pred_model(x_train_eval_data)[0]
+cat_pred = pred_model(x_train_data)[0]
 print("[eval] true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
@@ -205,7 +185,7 @@ cat_pred = model(x_train_data)[0]
 print("true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
-cat_pred = pred_model(x_train_eval_data)[0]
+cat_pred = pred_model(x_train_data)[0]
 print("[eval] true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
@@ -226,5 +206,9 @@ plt.plot(h.history['val_c1_acc'], label="val_c1_acc")
 plt.plot(h.history['val_c1_top3'], label="val_c1_top3")
 plt.plot(h.history['val_c1_top5'], label="val_c1_top5")
 plt.legend()
+
+# %%
+
+# %%
 
 # %%
