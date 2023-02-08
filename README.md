@@ -41,6 +41,9 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Hard vs soft parameter sharing: https://avivnavon.github.io/blog/parameter-sharing-in-deep-learning/
     - Condition prediction: https://github.com/Coughy1991/Reaction_condition_recommendation/tree/64f151e302abcb87e0a14088e08e11b4cea8d5ab
     
+
+https://pubs.acs.org/doi/10.1021/acscentsci.7b00572
+
 # Timeline
 
 - By end of Nov: Complete 1 full path through the pipeline, choosing the easiest options for cleaning data, clustering, and NN. Plot our first parity plot

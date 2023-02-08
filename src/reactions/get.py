@@ -150,7 +150,3 @@ def get_reaction_df(
 
     df3['rxn_super_class'] = df3['rxn_class'].str.rsplit('.', expand=True)[0].astype(int)
     return df3
-    
-
-def get_classified_rxn_data_mask(data_df):
-    return ~data_df.rxn_class.str.contains("0.0")

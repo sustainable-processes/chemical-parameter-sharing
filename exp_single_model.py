@@ -7,6 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 
 import src.reactions.get
+import src.reactions.filters
 import src.learn.ohe
 import src.learn.model
 import src.learn.fit
@@ -21,7 +22,7 @@ df = src.reactions.get.get_reaction_df(
     verbose=True,
 )
 
-mask = src.reactions.get.get_classified_rxn_data_mask(df)
+mask = src.reactions.filters.get_classified_rxn_data_mask(df)
 
 #unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)

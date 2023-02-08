@@ -6,6 +6,7 @@ import pandas as pd
 import tensorflow as tf
 
 import src.reactions.get
+import src.reactions.filters
 import src.learn.ohe
 
 import src.coley_code.model
@@ -17,7 +18,7 @@ df = src.reactions.get.get_reaction_df(
     verbose=True,
 )
 
-mask = src.reactions.get.get_classified_rxn_data_mask(df)
+mask = src.reactions.filters.get_classified_rxn_data_mask(df)
 
 #unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -139,7 +140,7 @@ model = src.coley_code.model.build_teacher_forcing_model(
 # we use a separate model for prediction because we use a recurrent setup for prediction
 # the pred model is only different after the catalyst
 pred_model = src.coley_code.model.build_teacher_forcing_model(
-    pfp_len=train_product_fp.shape[-1], 
+    pfp_len=train_product_fp.shape[-1],
     rxnfp_len=train_rxn_diff_fp.shape[-1], 
     c1_dim=train_catalyst.shape[-1],
     s1_dim=train_solvent_0.shape[-1], 

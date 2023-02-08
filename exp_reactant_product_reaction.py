@@ -23,8 +23,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(rxn_diff_fp.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.8
-train_val_split = 0.8
+train_test_split = 0.1
+train_val_split = 0.5
 
 test_idx = indexes[int(rxn_diff_fp.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(rxn_diff_fp.shape[0] * train_test_split)]

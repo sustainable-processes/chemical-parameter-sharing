@@ -7,6 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 
 import src.reactions.get
+import src.reactions.filters
 import src.learn.ohe
 import src.learn.model
 import src.learn.fit
@@ -19,7 +20,7 @@ df = src.reactions.get.get_reaction_df(
     verbose=True,
 )
 
-mask = src.reactions.get.get_classified_rxn_data_mask(df)
+mask = src.reactions.filters.get_classified_rxn_data_mask(df)
 
 #unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -68,6 +69,9 @@ train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(
 train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(df[['temperature_0']].fillna(-1), train_idx, val_idx)
 
 # del df
+
+
+
 
 print("Loaded data")
 
