@@ -1,3 +1,8 @@
+"""
+In this code we can evaluate the impact of training with hard or soft parameter selection.
+The evaluation is performed using hard parameter selection.
+"""
+
 # %%
 import pathlib
 
@@ -113,7 +118,7 @@ model = src.coley_code.model.build_teacher_forcing_model(
     N_h1=1024, 
     N_h2=100,
     l2v=0,
-    mode=src.coley_code.model.SOFT_SELECTION,
+    mode=src.coley_code.model.HARD_SELECTION,
 )
 
 # we use a separate model for prediction because we use a recurrent setup for prediction

@@ -15,6 +15,7 @@ Then execute the following commands in the root of the repository (stolen from: 
  Reaction difference FP: https://pubs.acs.org/doi/abs/10.1021/ci5006614
  
  NN condition prediction: https://pubs.acs.org/doi/full/10.1021/acscentsci.8b00357
+ NN condition prediction: https://github.com/Coughy1991/Reaction_condition_recommendation.git
 
 ## Schneider
 

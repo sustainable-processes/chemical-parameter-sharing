@@ -2,6 +2,30 @@ import typing
 import torch
 
 
+TEACHER_FORCE = 0
+HARD_SELECTION = 1
+SOFT_SELECTION = 2
+
+
+def argmax_matrix(m):
+    max_idx = torch.argmax(m, 1, keepdim=True)
+    one_hot = torch.FloatTensor(m.shape)
+    one_hot.zero_()
+    one_hot.scatter_(1, max_idx, 1)
+    return one_hot
+
+
+def forward_selection(pred, pred_true, mode=TEACHER_FORCE):
+    if mode == TEACHER_FORCE:
+        return pred_true
+    elif mode == HARD_SELECTION:
+        return argmax_matrix(pred)
+    elif mode == SOFT_SELECTION:
+        return pred
+    else:
+        raise NotImplementedError(f"unknown for {mode=}")
+
+
 class SimpleMLP(torch.nn.Module):
 
     def __init__(
@@ -41,53 +65,71 @@ class SimpleMLP(torch.nn.Module):
             self.train()
         else:
             self.eval()
+
         return self.layers(x)
 
 
-class ColeyUpstreamModel(torch.nn.Module):
+class ColeyBlock(torch.nn.Module):
 
-    def __init__(self, *, input_dim, hidden_dims, output_dim, hidden_acts=torch.nn.ReLU, output_act=torch.nn.ReLU) -> None:
-        super(ColeyUpstreamModel, self).__init__()
-        self._mlp = SimpleMLP(
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        mid_dim,
+        highway_dim,
+        upstream_hidden_dims=[],
+        upstream_hidden_acts=[],
+        upstream_output_act=torch.nn.ReLU,
+        downstream_hidden_dims=[300, 300],
+        downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+        downstream_output_act=torch.nn.Softmax,
+        stochastic_mid=False,
+        use_batchnorm=False, 
+        dropout_prob=0.0
+    ) -> None:
+        super(ColeyBlock, self).__init__()
+        
+        self.input_dim = input_dim
+        self.mid_dim = mid_dim
+        self.output_dim = output_dim
+        self.highway_dim = highway_dim
+        self.stochastic_mid = stochastic_mid
+
+        self.upstream = SimpleMLP(
             input_dim=input_dim, 
-            hidden_dims=hidden_dims, 
-            output_dim=output_dim,
-            hidden_acts=hidden_acts, 
-            output_act=output_act, 
-            use_batchnorm=False, 
-            dropout_prob=0.0
+            hidden_dims=upstream_hidden_dims, 
+            output_dim=mid_dim, 
+            hidden_acts=upstream_hidden_acts, 
+            output_act=upstream_output_act,
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob
+        )
+        self.downstream = SimpleMLP(
+            input_dim=mid_dim+highway_dim, 
+            hidden_dims=downstream_hidden_dims, 
+            output_dim=output_dim, 
+            hidden_acts=downstream_hidden_acts, 
+            output_act=downstream_output_act, 
+            use_batchnorm=use_batchnorm, 
+            dropout_prob=dropout_prob
         )
 
 
-    def forward(self, x, training=True):
-        if training:
-            self.train()
-        else:
-            self.eval()
-        return self._mlp(x, training=training)
+    def forward(
+        self,
+        *,
+        input,
+        highway_input=None,
+        training=True,
+    ):
 
-
-class ColeyDownstreamModel(torch.nn.Module):
-
-    def __init__(self, input_dim, hidden_dims, output_dim, hidden_acts, output_act=torch.nn.Identity) -> None:
-        super(ColeyDownstreamModel, self).__init__() 
-        self._mlp = SimpleMLP(
-            input_dim=input_dim, 
-            hidden_dims=hidden_dims, 
-            output_dim=output_dim,
-            hidden_acts=hidden_acts, 
-            output_act=output_act, 
-            use_batchnorm=False, 
-            dropout_prob=0.0
-        )
-
-
-    def forward(self, x, training=True):
-        if training:
-            self.train()
-        else:
-            self.eval()
-        return self._mlp(x, training=training)
+        mid = self.upstream(input, training=training)
+        if self.stochastic_mid:
+            mid = torch.nn.Dropout(p=0.5)(mid)
+        if highway_input is not None:
+            mid = torch.cat((highway_input, mid), dim=1)
+        output = self.downstream(mid, training=training)
+        return output, mid
 
 
 class ColeyModel(torch.nn.Module):
@@ -113,45 +155,95 @@ class ColeyModel(torch.nn.Module):
         self.temp_dim = temp_dim
 
         highway_dim = 0
+        mid_dim = 1000
+        self.cat_block = ColeyBlock(
+            input_dim=product_fp_dim+rxn_diff_fp_dim,
+            output_dim=cat_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[1000],
+            upstream_hidden_acts=[torch.nn.ReLU],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=True
+        )
+        highway_dim += mid_dim
 
-        output_dim = 1000
-        self.cat_upstream = ColeyUpstreamModel(input_dim=product_fp_dim+rxn_diff_fp_dim, hidden_dims=[1000], output_dim=output_dim)
-        self.cat_downstream = ColeyDownstreamModel(input_dim=output_dim, hidden_dims=[300, 300], output_dim=cat_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
+        mid_dim = 100
+        self.sol1_block = ColeyBlock(
+            input_dim=cat_dim,
+            output_dim=sol1_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[],
+            upstream_hidden_acts=[],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=False
+        ) 
+        highway_dim += mid_dim
 
-        output_dim = 100
-        self.sol1_upstream = ColeyUpstreamModel(input_dim=cat_dim, hidden_dims=[], output_dim=output_dim)
-        self.sol1_downstream = ColeyDownstreamModel(input_dim=highway_dim+output_dim, hidden_dims=[300, 300], output_dim=sol1_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
+        mid_dim = 100
+        self.sol2_block = ColeyBlock(
+            input_dim=sol1_dim,
+            output_dim=sol2_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[],
+            upstream_hidden_acts=[],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=False
+        ) 
+        highway_dim += mid_dim
 
-        output_dim = 100
-        self.sol2_upstream = ColeyUpstreamModel(input_dim=sol1_dim, hidden_dims=[], output_dim=output_dim)
-        self.sol2_downstream = ColeyDownstreamModel(input_dim=highway_dim+output_dim, hidden_dims=[300, 300], output_dim=sol2_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
+        mid_dim = 100
+        self.reag1_block = ColeyBlock(
+            input_dim=sol2_dim,
+            output_dim=reag1_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[],
+            upstream_hidden_acts=[],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=False
+        ) 
+        highway_dim += mid_dim
 
-        output_dim = 100
-        self.reag1_upstream = ColeyUpstreamModel(input_dim=sol2_dim, hidden_dims=[], output_dim=output_dim)
-        self.reag1_downstream = ColeyDownstreamModel(input_dim=highway_dim+output_dim, hidden_dims=[300, 300], output_dim=reag1_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
+        mid_dim = 100
+        self.reag2_block = ColeyBlock(
+            input_dim=reag1_dim,
+            output_dim=reag2_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[],
+            upstream_hidden_acts=[],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=False
+        ) 
+        highway_dim += mid_dim
 
-        output_dim = 100
-        self.reag2_upstream = ColeyUpstreamModel(input_dim=reag1_dim, hidden_dims=[], output_dim=output_dim)
-        self.reag2_downstream = ColeyDownstreamModel(input_dim=highway_dim+output_dim, hidden_dims=[300, 300], output_dim=reag2_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
-
-        output_dim = 100
-        self.temp_upstream = ColeyUpstreamModel(input_dim=reag2_dim, hidden_dims=[], output_dim=output_dim)
-        self.temp_downstream = ColeyDownstreamModel(input_dim=highway_dim+output_dim, hidden_dims=[300, 300], output_dim=temp_dim, hidden_acts=[torch.nn.ReLU, torch.nn.Tanh], output_act=torch.nn.Softmax)
-        highway_dim += output_dim
-
-
-    def argmax_matrix(self, m):
-        max_idx = torch.argmax(m, 1, keepdim=True)
-        one_hot = torch.FloatTensor(m.shape)
-        one_hot.zero_()
-        one_hot.scatter_(1, max_idx, 1)
-        return one_hot
-
+        mid_dim = 100
+        self.temp_block = ColeyBlock(
+            input_dim=reag2_dim,
+            output_dim=temp_dim,
+            mid_dim=mid_dim,
+            highway_dim=highway_dim,
+            upstream_hidden_dims=[],
+            upstream_hidden_acts=[],
+            downstream_hidden_dims=[300, 300],
+            downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
+            downstream_output_act=torch.nn.Softmax,
+            stochastic_mid=False
+        )
+        highway_dim += mid_dim
 
     def forward(
         self,
@@ -164,52 +256,39 @@ class ColeyModel(torch.nn.Module):
         reag1,
         reag2,
         training=True,
-        force_teach=True,
-        hard_select=True,
-        stochastic_mid=True,
+        mode=TEACHER_FORCE,
     ):
-        fp_input = torch.cat((product_fp, rxn_diff_fp), dim=1)
 
-        cat_mid = self.cat_upstream(fp_input, training=training)
-        if stochastic_mid:
-            cat_mid = torch.nn.Dropout(p=0.5)(cat_mid)
-        cat_output = self.cat_downstream(cat_mid, training=training)
-
-        _cat = cat if force_teach else cat_output
-        if hard_select and not force_teach:
-            _cat = self.argmax_matrix(_cat)
-        sol1_mid = self.sol1_upstream(_cat, training=training)
-        concat_cat_sol1 = torch.cat((cat_mid, sol1_mid), dim=1)
-        sol1_output = self.sol1_downstream(concat_cat_sol1, training=training)
-
-        _sol1 = sol1 if force_teach else sol1_output
-        if hard_select and not force_teach:
-            _sol1 = self.argmax_matrix(_sol1)
-        sol2_mid = self.sol2_upstream(_sol1, training=training)
-        concat_cat_sol1_sol2 = torch.cat((concat_cat_sol1, sol2_mid), dim=1)
-        sol2_output = self.sol2_downstream(concat_cat_sol1_sol2, training=training)
-
-        _sol2 = sol2 if force_teach else sol2_output
-        if hard_select and not force_teach:
-            _sol2 = self.argmax_matrix(_sol2)
-        reag1_mid = self.reag1_upstream(_sol2, training=training)
-        concat_cat_sol1_sol2_reag1 = torch.cat((concat_cat_sol1_sol2, reag1_mid), dim=1)
-        reag1_output = self.reag1_downstream(concat_cat_sol1_sol2_reag1, training=training)
-
-        _reag1 = reag1 if force_teach else reag1_output
-        if hard_select and not force_teach:
-            _reag1 = self.argmax_matrix(_reag1)
-        reag2_mid = self.reag2_upstream(_reag1, training=training)
-        concat_cat_sol1_sol2_reag1_reag2 = torch.cat((concat_cat_sol1_sol2_reag1, reag2_mid), dim=1)
-        reag2_output = self.reag2_downstream(concat_cat_sol1_sol2_reag1_reag2, training=training)
-
-        _reag2 = reag2 if force_teach else reag2_output
-        if hard_select and not force_teach:
-            _reag2 = self.argmax_matrix(_reag2)
-        temp_mid = self.temp_upstream(_reag2, training=training)
-        concat_cat_sol1_sol2_reag1_reag2_temp = torch.cat((concat_cat_sol1_sol2_reag1_reag2, temp_mid), dim=1)
-        temp_output = self.temp_downstream(concat_cat_sol1_sol2_reag1_reag2_temp, training=training)
-
+        cat_output, cat_mid = self.cat_block(
+            input=torch.cat((product_fp, rxn_diff_fp), dim=1),
+            highway_input=None,
+            training=training
+        )
+        sol1_output, sol1_mid = self.sol1_block(
+            input=forward_selection(pred=cat_output, pred_true=cat, mode=mode), 
+            highway_input=cat_mid, 
+            training=training
+        )
+        sol2_output, sol2_mid = self.sol2_block(
+            input=forward_selection(pred=sol1_output, pred_true=sol1, mode=mode), 
+            highway_input=sol1_mid, 
+            training=training
+        )
+        reag1_output, reag1_mid = self.reag1_block(
+            input=forward_selection(pred=sol2_output, pred_true=sol2, mode=mode),
+            highway_input=sol2_mid,
+            training=training
+        )
+        reag2_output, reag2_mid = self.reag2_block(
+            input=forward_selection(pred=reag1_output, pred_true=reag1, mode=mode),
+            highway_input=reag1_mid,
+            training=training
+        )
+        temp_output, _ = self.temp_block(
+            input=forward_selection(pred=reag2_output, pred_true=reag2, mode=mode),
+            highway_input=reag2_mid,
+            training=training
+        )
         return cat_output, sol1_output, sol2_output, reag1_output, reag2_output, temp_output
 
 
@@ -218,9 +297,7 @@ class ColeyModel(torch.nn.Module):
         *,
         data,
         training=True,
-        force_teach=True,
-        hard_select=True,
-        stochastic_mid=True,
+        mode=TEACHER_FORCE,
         indexes=slice(None),
     ):
 
@@ -233,9 +310,7 @@ class ColeyModel(torch.nn.Module):
             reag1=data['reagents_1'][indexes],
             reag2=data['reagents_2'][indexes],
             training=training,
-            force_teach=force_teach,
-            hard_select=hard_select,
-            stochastic_mid=stochastic_mid,
+            mode=mode,
         )
         pred = {}
         pred['catalyst'], pred['solvent_1'], pred['solvent_2'], pred['reagents_1'], pred['reagents_2'], pred['temperature'] = output

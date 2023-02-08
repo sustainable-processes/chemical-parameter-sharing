@@ -1,30 +1,39 @@
+import typing
 import numpy as np
 import torch
 import torchmetrics
 from tqdm import trange
 
 
-def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, targets, val_data=None):
-    
+def get_batch_size(size, length):
+    if isinstance(size, int):
+        return size / length
+    elif isinstance(size, float):
+        assert (0. < size) & (size <= 1.0)
+        return size
+
+
+def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int], loss_fn, optimizer, targets, 
+               val_data=None, train_kwargs: dict = {}, val_kwargs: dict={}, train_eval: bool=True):
+    train_size = train_data["product_fp"].shape[0]
+    batch_size = get_batch_size(batch_size, length=train_size)
+
     acc_metrics = {}
-    losses = {"sum": {"train": [], "val": []}}
+    losses = {"sum": {"train": [], "val": [], "train_eval": []}}
     for target in targets:
-        losses[target] = {"train": [], "val": []}
+        losses[target] = {"train": [], "val": [], "train_eval": []}
         if target == "temperature":
             continue
         num_classes = train_data[target].shape[1]
         acc_metrics[target] = {
-            "top1": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=1), "train": [], "val": [], "train_batch": []},
-            "top3": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=3), "train": [], "val": [], "train_batch": []},
-            "top5": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=5), "train": [], "val": [], "train_batch": []},
+            "top1": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=1), "train": [], "val": [], "train_eval": [], "train_batch": []},
+            "top3": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=3), "train": [], "val": [], "train_eval": [], "train_batch": []},
+            "top5": {"metric": torchmetrics.Accuracy(task="multiclass", num_classes=num_classes, top_k=5), "train": [], "val": [], "train_eval": [], "train_batch": []},
         }
-        
 
-    train_size = train_data["product_fp"].shape[0]
+    for e in range(epochs):
 
-    for e in (t := trange(epochs, desc='', leave=True)):
-
-        output_str = ""
+        output_str = f"{e} | "
     
         idxes = np.arange(train_size)
         np.random.shuffle(idxes)
@@ -33,9 +42,9 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
         interval = int(idxes.shape[0] * batch_size)
 
         # storage for use during mini-batching, reset every epoch
-        epoch_losses = {"sum": {"train": [], "val": []}}
+        epoch_losses = {"sum": {"train": []}}
         for target in targets:
-            epoch_losses[target] = {"train": [], "val": []}
+            epoch_losses[target] = {"train": []}
         for target in targets:
             if target == "temperature":
                 continue
@@ -43,7 +52,7 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
                 acc_metrics[target][top]['train_batch'] = [] 
 
         # run across training
-        for idx in range(interval, idxes.shape[0]+1, interval):
+        for idx in (t := trange(interval, idxes.shape[0]+1, interval, desc='', leave=True)):
             if batch_size < 1.0:
                 batch_idxes = idxes[prev_idx:idx]
             else:
@@ -54,6 +63,7 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
                 data=train_data,
                 indexes=batch_idxes,
                 training=True,
+                **train_kwargs,
             )
 
             loss = 0
@@ -88,6 +98,32 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
 
         output_str += f'Train loss: {losses["sum"]["train"][-1]:.3f}'
 
+        # evaluate with train data
+        if train_eval:
+            with torch.no_grad():
+                pred = model.forward_dict(
+                    data=train_data,
+                    indexes=slice(None),
+                    training=False,
+                    **val_kwargs,
+                )
+
+                loss = 0
+                for target in targets:  # we can change targets to be loss functions in the future if the loss function changes
+                    target_batch_loss = loss_fn(pred[target], train_data[target])    
+                    factor = 1e-4 if target == "temperature" else 1.0
+                    loss += (factor * target_batch_loss)
+                    losses[target]["train_eval"].append(target_batch_loss.detach().numpy().item())
+                losses["sum"]["train_eval"].append(loss.detach().numpy().item()) 
+
+                for target in targets:
+                    if target == "temperature":
+                        continue
+                    for top in ["top1", "top3", "top5"]:
+                        acc_metrics[target][top]['train_eval'].append(acc_metrics[target][top]['metric'](pred[target], train_data[target].argmax(axis=1)))
+
+                output_str += f' | Train eval loss: {losses["sum"]["train_eval"][-1]:.3f} '
+
         # evaluate with validation data
         if val_data is not None:
             with torch.no_grad():
@@ -95,6 +131,7 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
                     data=val_data,
                     indexes=slice(None),
                     training=False,
+                    **val_kwargs,
                 )
 
                 loss = 0
@@ -112,5 +149,5 @@ def train_loop(model, train_data, *, epochs, batch_size, loss_fn, optimizer, tar
                         acc_metrics[target][top]['val'].append(acc_metrics[target][top]['metric'](pred[target], val_data[target].argmax(axis=1)))
 
                 output_str += f' | Val loss: {losses["sum"]["val"][-1]:.3f} '
-        t.set_description(output_str, refresh=True)
+        print(output_str)
     return losses, acc_metrics

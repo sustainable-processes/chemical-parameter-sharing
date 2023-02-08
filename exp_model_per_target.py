@@ -12,6 +12,8 @@ import src.learn.model
 import src.learn.fit
 import src.learn.metrics
 
+import config.single_vs_multi
+
 
 df = src.reactions.get.get_reaction_df(
     cleaned_data_path = pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
@@ -39,14 +41,14 @@ if True:
 assert df.shape[0] == rxn_diff_fp.shape[0]
 assert df.shape[0] == product_fp.shape[0]
 
-rng = np.random.default_rng(12345)
+rng = np.random.default_rng(config.single_vs_multi.seed)
 
 
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.3
-train_val_split = 0.3
+train_test_split = config.single_vs_multi.train_test_split
+train_val_split = config.single_vs_multi.train_val_split
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -74,7 +76,7 @@ print("Loaded data")
 # %%
 
 
-cut_off = 5_000
+cut_off = config.single_vs_multi.train_cutoff
 train_data = {
     "product_fp": train_product_fp[:cut_off],
     "rxn_diff_fp": train_rxn_diff_fp[:cut_off],
@@ -86,7 +88,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = None
+cut_off = config.single_vs_multi.val_cutoff
 val_data = {
     "product_fp": val_product_fp[:cut_off],
     "rxn_diff_fp": val_rxn_diff_fp[:cut_off],
@@ -109,7 +111,7 @@ m = src.learn.model.ColeyModel(
     temp_dim=train_data['temperature'].shape[-1],
 )
 
-pred = m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)
+pred = m.forward_dict(data=train_data)
 print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
@@ -119,37 +121,27 @@ train_acc = src.learn.metrics.get_topk_acc(
     k=[1,5],
 )
 val_acc = src.learn.metrics.get_topk_acc(
-    pred=m.forward_dict(data=val_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
+    pred=m.forward_dict(data=val_data)['catalyst'], 
     true=val_data['catalyst'],
     k=[1,5],
 )
 print(f"untrained catalyst top 1 acc: {train_acc[1]=} {val_acc[1]=}")
 print(f"untrained catalyst top 5 acc: {train_acc[5]=} {val_acc[5]=}")
 
-targets=[
-    "catalyst",
-    "solvent_1",
-    "solvent_2",
-    "reagents_1",
-    "reagents_2",
-    "temperature",
-]
+targets=config.single_vs_multi.targets
 
 losses, acc_metrics = src.learn.fit.train_loop(
     model=m, 
     train_data=train_data, 
-    epochs=2,
-    batch_size=0.05,
+    epochs=config.single_vs_multi.epochs,
+    batch_size=config.single_vs_multi.batch_size / 11,
     loss_fn=torch.nn.CrossEntropyLoss(), 
-    optimizer=torch.optim.Adam(m.parameters(), lr=1e-2),
+    optimizer=torch.optim.Adam(m.parameters(), lr=config.single_vs_multi.lr),
     targets=targets,
     val_data=val_data,
-    train_kwargs={"mode": src.learn.model.TEACHER_FORCE},
-    val_kwargs={"mode": src.learn.model.HARD_SELECTION},
-    train_eval=False, 
 )
 
-pred = m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)
+pred = m.forward_dict(data=train_data)
 print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
@@ -166,33 +158,37 @@ val_acc = src.learn.metrics.get_topk_acc(
 print(f"trained catalyst top 1 acc: {train_acc[1]=} {val_acc[1]=}")
 print(f"trained catalyst top 5 acc: {train_acc[5]=} {val_acc[5]=}")
 
+if "catalyst" in targets:
+    plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
+    plt.plot(losses['catalyst']["val"], label="catalyst val"); #plt.legend()
+
 # %%
 plt.plot(losses['sum']["train"], label="sum train"); plt.legend()
 plt.plot(losses['sum']["val"], label="sum val"); plt.legend()
 # %%
-if "catalyst" in targets:
-    plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
-    plt.plot(losses['catalyst']["val"], label="catalyst val"); plt.legend()
-    plt.show()
-if "solvent_1" in targets:
-    plt.plot(losses['solvent_1']["train"], label="solvent_1 train"); #plt.legend()
-    plt.plot(losses['solvent_1']["val"], label="solvent_1 val"); plt.legend()
-    plt.show()
-if "solvent_2" in targets:
-    plt.plot(losses['solvent_2']["train"], label="solvent_2 train"); #plt.legend()
-    plt.plot(losses['solvent_2']["val"], label="solvent_2 val"); plt.legend()
-    plt.show()
-if "reagents_1" in targets:
-    plt.plot(losses['reagents_1']["train"], label="reagents_1 train"); #plt.legend()
-    plt.plot(losses['reagents_1']["val"], label="reagents_1 val"); plt.legend()
-    plt.show()
-if "reagents_2" in targets:
-    plt.plot(losses['reagents_2']["train"], label="reagents_2 train"); #plt.legend()
-    plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); plt.legend()
-    plt.show()
-if "temperature" in targets:
-    plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
-    plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
-    plt.show()
+# if "catalyst" in targets:
+#     plt.plot(losses['catalyst']["train"], label="catalyst train"); #plt.legend()
+#     plt.plot(losses['catalyst']["val"], label="catalyst val"); plt.legend()
+#     plt.show()
+# if "solvent_1" in targets:
+#     plt.plot(losses['solvent_1']["train"], label="solvent_1 train"); #plt.legend()
+#     plt.plot(losses['solvent_1']["val"], label="solvent_1 val"); plt.legend()
+#     plt.show()
+# if "solvent_2" in targets:
+#     plt.plot(losses['solvent_2']["train"], label="solvent_2 train"); #plt.legend()
+#     plt.plot(losses['solvent_2']["val"], label="solvent_2 val"); plt.legend()
+#     plt.show()
+# if "reagents_1" in targets:
+#     plt.plot(losses['reagents_1']["train"], label="reagents_1 train"); #plt.legend()
+#     plt.plot(losses['reagents_1']["val"], label="reagents_1 val"); plt.legend()
+#     plt.show()
+# if "reagents_2" in targets:
+#     plt.plot(losses['reagents_2']["train"], label="reagents_2 train"); #plt.legend()
+#     plt.plot(losses['reagents_2']["val"], label="reagents_2 val"); plt.legend()
+#     plt.show()
+# if "temperature" in targets:
+#     plt.plot(losses['temperature']["train"], label="temperature train"); #plt.legend()
+#     plt.plot(losses['temperature']["val"], label="temperature val"); plt.legend()
+#     plt.show()
 
 # %%
