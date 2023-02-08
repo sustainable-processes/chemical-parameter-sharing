@@ -4,6 +4,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 import src.reactions.get
 import src.reactions.filters
@@ -160,15 +161,15 @@ def mse_ignore_na(y_true, y_pred):
 
 model.compile(
     loss=[
-        tf.keras.losses.CategoricalCrossentropy(),
-        tf.keras.losses.CategoricalCrossentropy(),
-        tf.keras.losses.CategoricalCrossentropy(),
-        tf.keras.losses.CategoricalCrossentropy(),
-        tf.keras.losses.CategoricalCrossentropy(),
+        tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        tf.keras.losses.CategoricalCrossentropy(from_logits=False),
         tf.keras.losses.MeanSquaredError(),
     ], 
     loss_weights=[1, 1, 1, 1, 1, 1e-4], 
-    optimizer='adam',
+    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
     metrics = {
         'c1':['acc', tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"), tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5")],
         's1':['acc', tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"), tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5")],
@@ -194,7 +195,7 @@ print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() 
 
 h = model.fit(
     x=x_train_data, y=y_train_data, 
-    epochs=20, verbose=1, batch_size=5096,
+    epochs=20, verbose=1, batch_size=16,
     validation_data=(x_val_data, y_val_data),
 )
 
@@ -210,13 +211,7 @@ cat_pred = pred_model(x_train_eval_data)[0]
 print("[eval] true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
-# %%
 
-import matplotlib.pyplot as plt
-
-plt.plot(h.history['loss'], label="loss")
-plt.plot(h.history['val_loss'], label="val_loss")
-plt.legend()
 
 # %%
 
@@ -228,4 +223,9 @@ plt.plot(h.history['val_c1_top3'], label="val_c1_top3")
 plt.plot(h.history['val_c1_top5'], label="val_c1_top5")
 plt.legend()
 
+# %%
+
+plt.plot(h.history['loss'], label="loss")
+plt.plot(h.history['val_loss'], label="val_loss")
+plt.legend()
 # %%

@@ -83,7 +83,7 @@ class ColeyBlock(torch.nn.Module):
         upstream_output_act=torch.nn.ReLU,
         downstream_hidden_dims=[300, 300],
         downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-        downstream_output_act=torch.nn.Softmax,
+        downstream_output_act=torch.nn.Identity,
         stochastic_mid=False,
         use_batchnorm=False, 
         dropout_prob=0.0
@@ -166,7 +166,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[torch.nn.ReLU],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=True
         )
         highway_dim += mid_dim
@@ -181,7 +181,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=False
         ) 
         highway_dim += mid_dim
@@ -196,7 +196,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=False
         ) 
         highway_dim += mid_dim
@@ -211,7 +211,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=False
         ) 
         highway_dim += mid_dim
@@ -226,7 +226,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=False
         ) 
         highway_dim += mid_dim
@@ -241,7 +241,7 @@ class ColeyModel(torch.nn.Module):
             upstream_hidden_acts=[],
             downstream_hidden_dims=[300, 300],
             downstream_hidden_acts=[torch.nn.ReLU, torch.nn.Tanh],
-            downstream_output_act=torch.nn.Softmax,
+            downstream_output_act=torch.nn.Identity,
             stochastic_mid=False
         )
         highway_dim += mid_dim

@@ -42,15 +42,6 @@ val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
 # %%
 
-print(
-    train_product_fp.shape,
-    train_reactant_fp.shape,
-    train_rxn_diff_fp.shape,
-)
-
-# %%
-
-
 class MergeModel(torch.nn.Module):
 
     def __init__(
@@ -216,8 +207,8 @@ losses = train_loop(
     loss_fn=torch.nn.MSELoss(),
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     val_data=((val_product_fp, val_product_fp), val_rxn_diff_fp), 
-    train_eval=False,
-    eval_freq=2,
+    train_eval=True,
+    eval_freq=1,
 )
 # %%
 

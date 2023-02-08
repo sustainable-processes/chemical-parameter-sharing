@@ -46,8 +46,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.8
-train_val_split = 0.8
+train_test_split = 0.2
+train_val_split = 0.5
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -90,7 +90,7 @@ train_data = {
     "temperature": train_temperature[:cut_off],
 }
 
-cut_off = None
+cut_off = 1000
 val_data = {
     "product_fp": val_product_fp[:cut_off],
     "rxn_diff_fp": val_rxn_diff_fp[:cut_off],
@@ -147,10 +147,10 @@ targets=[
 losses, acc_metrics = src.learn.fit.train_loop(
     model=m, 
     train_data=train_data, 
-    epochs=20,
-    batch_size=128,
+    epochs=10,
+    batch_size=256,
     loss_fn=torch.nn.CrossEntropyLoss(), 
-    optimizer=torch.optim.Adam(m.parameters(), lr=1e-5),
+    optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     targets=targets,
     val_data=val_data,
     train_kwargs={"mode": src.learn.model.TEACHER_FORCE},
