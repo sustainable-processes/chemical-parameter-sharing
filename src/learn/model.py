@@ -7,6 +7,7 @@ HARD_SELECTION = 1
 SOFT_SELECTION = 2
 
 
+@torch.no_grad()
 def argmax_matrix(m):
     max_idx = torch.argmax(m, 1, keepdim=True)
     one_hot = torch.FloatTensor(m.shape)

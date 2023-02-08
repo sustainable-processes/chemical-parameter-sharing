@@ -112,7 +112,7 @@ def get_reaction_df(
     # do the catalyst replacements that Alexander found
     df3 = df2.replace(catalyst_replacements)
 
-    df3.reset_index(inplace=True)
+    df3.reset_index(inplace=True, drop=True)
 
     del df2
 

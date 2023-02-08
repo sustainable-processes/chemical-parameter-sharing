@@ -13,6 +13,7 @@ def generate_data(
     rxn_classes_path: pathlib.Path = pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
     diff_fp_path: typing.Optional[pathlib.Path] = pathlib.Path("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl"),
     product_fp_path: typing.Optional[pathlib.Path] = pathlib.Path("data/ORD_USPTO/USPTO_product_fp.pkl"),
+    reactant_fp_path: typing.Optional[pathlib.Path] = pathlib.Path("data/ORD_USPTO/USPTO_reactant_fp.pkl"),
     radius:int=3,
     nBits:int=512,
 ):
@@ -54,32 +55,36 @@ def generate_data(
 
     num_cores = multiprocessing.cpu_count()
     inputs = tqdm(df['reactant_0'])
-    r0 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
+    r0 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
 
     inputs = tqdm(df['reactant_1'])
-    r1 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
+    r1 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
 
     inputs = tqdm(df['reactant_2'])
-    r2 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
+    r2 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
 
     inputs = tqdm(df['reactant_3'])
-    r3 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
+    r3 = Parallel(n_jobs=num_cores)(delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits) for i in inputs)
 
     ar_r0 = np.array(r0)
     ar_r1 = np.array(r1)
     ar_r2 = np.array(r2)
     ar_r3 = np.array(r3)
 
-    rxn_diff_fp = product_fp - ar_r0 - ar_r1 - ar_r2 - ar_r3
-
+    reactant_fp = ar_r0 + ar_r1 + ar_r2 + ar_r3
     del ar_r0, ar_r1, ar_r2, ar_r3
     del r0, r1, r2, r3
+
+    rxn_diff_fp = product_fp - reactant_fp
+
 
     #save to pickle
     if diff_fp_path is not None:
         np.save(diff_fp_path, rxn_diff_fp)
     if product_fp_path is not None:
         np.save(product_fp_path, product_fp)
+    if reactant_fp_path is not None:
+        np.save(reactant_fp_path, reactant_fp)
     return rxn_diff_fp, product_fp
 
     
@@ -89,6 +94,7 @@ if __name__ == "__main__":
         rxn_classes_path=pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
         diff_fp_path=pathlib.Path("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl"),
         product_fp_path=pathlib.Path("data/ORD_USPTO/USPTO_product_fp.pkl"),
+        reactant_fp_path=pathlib.Path("data/ORD_USPTO/USPTO_reactant_fp.pkl"),
         radius=3,
         nBits=512,
     )

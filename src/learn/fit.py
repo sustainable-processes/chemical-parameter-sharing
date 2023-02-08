@@ -33,7 +33,7 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
 
     for e in range(epochs):
 
-        output_str = f"{e} | "
+        output_str = f"{e+1}/{epochs} | "
     
         idxes = np.arange(train_size)
         np.random.shuffle(idxes)
