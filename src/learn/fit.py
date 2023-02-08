@@ -4,6 +4,8 @@ import torch
 import torchmetrics
 from tqdm import trange
 
+from torch.utils.tensorboard import SummaryWriter
+
 
 def get_batch_size(size, length):
     if isinstance(size, int):
@@ -14,7 +16,11 @@ def get_batch_size(size, length):
 
 
 def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int], loss_fn, optimizer, targets, 
-               val_data=None, train_kwargs: dict = {}, val_kwargs: dict={}, train_eval: bool=True):
+               val_data=None, train_kwargs: dict = {}, val_kwargs: dict={}, train_eval: bool=True, write_summary: bool=True):
+
+    if write_summary:
+        writer = SummaryWriter()
+
     train_size = train_data["product_fp"].shape[0]
     batch_size = get_batch_size(batch_size, length=train_size)
 
@@ -86,8 +92,12 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
 
         # calc the average train loss
         losses["sum"]["train"].append(np.mean(epoch_losses["sum"]["train"]))
+        if write_summary:
+            writer.add_scalar('Loss/train/sum', losses["sum"]["train"][-1], e)
         for target in targets:
             losses[target]["train"].append(np.mean(epoch_losses[target]["train"]))
+            if write_summary:
+                writer.add_scalar(f'Loss/train/{target}', losses[target]["train"][-1], e)
 
         # calc the average train acc
         for target in targets:
@@ -95,8 +105,11 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
                 continue
             for top in ["top1", "top3", "top5"]:
                 acc_metrics[target][top]['train'].append(np.mean(acc_metrics[target][top]['train_batch']))
+                if write_summary:
+                    writer.add_scalar(f'{top}_acc/train/{target}', acc_metrics[target][top]['train'][-1], e)
 
         output_str += f'Train loss: {losses["sum"]["train"][-1]:.3f}'
+        
 
         # evaluate with train data
         if train_eval:
@@ -114,14 +127,19 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
                     factor = 1e-4 if target == "temperature" else 1.0
                     loss += (factor * target_batch_loss)
                     losses[target]["train_eval"].append(target_batch_loss.detach().numpy().item())
+                    if write_summary:
+                        writer.add_scalar(f'Loss/train_eval/{target}', losses[target]["train_eval"][-1], e)
                 losses["sum"]["train_eval"].append(loss.detach().numpy().item()) 
+                if write_summary:
+                    writer.add_scalar('Loss/train_eval/sum', losses["sum"]["train_eval"][-1], e)
 
                 for target in targets:
                     if target == "temperature":
                         continue
                     for top in ["top1", "top3", "top5"]:
                         acc_metrics[target][top]['train_eval'].append(acc_metrics[target][top]['metric'](pred[target], train_data[target].argmax(axis=1)))
-
+                        if write_summary:
+                            writer.add_scalar(f'{top}_acc/train_eval/{target}', acc_metrics[target][top]['train_eval'][-1], e)
                 output_str += f' | Train eval loss: {losses["sum"]["train_eval"][-1]:.3f} '
 
         # evaluate with validation data
@@ -140,14 +158,19 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
                     factor = 1e-4 if target == "temperature" else 1.0
                     loss += (factor * target_batch_loss)
                     losses[target]["val"].append(target_batch_loss.detach().numpy().item())
+                    if write_summary:
+                        writer.add_scalar(f'Loss/val/{target}', losses[target]["val"][-1], e)
                 losses["sum"]["val"].append(loss.detach().numpy().item()) 
+                if write_summary:
+                    writer.add_scalar('Loss/val/sum', losses["sum"]["val"][-1], e)
 
                 for target in targets:
                     if target == "temperature":
                         continue
                     for top in ["top1", "top3", "top5"]:
                         acc_metrics[target][top]['val'].append(acc_metrics[target][top]['metric'](pred[target], val_data[target].argmax(axis=1)))
-
+                        if write_summary:
+                            writer.add_scalar(f'{top}_acc/val/{target}', acc_metrics[target][top]['val'][-1], e)
                 output_str += f' | Val loss: {losses["sum"]["val"][-1]:.3f} '
         print(output_str)
     return losses, acc_metrics

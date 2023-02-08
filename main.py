@@ -108,6 +108,8 @@ m = src.learn.model.ColeyModel(
     reag1_dim=train_data['reagents_1'].shape[-1],
     reag2_dim=train_data['reagents_2'].shape[-1],
     temp_dim=train_data['temperature'].shape[-1],
+    # use_batchnorm=True,
+    # dropout_prob=0.2,
 )
 
 pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
@@ -144,7 +146,7 @@ targets=[
 losses, acc_metrics = src.learn.fit.train_loop(
     model=m, 
     train_data=train_data, 
-    epochs=10,
+    epochs=50,
     batch_size=256,
     loss_fn=torch.nn.CrossEntropyLoss(), 
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
