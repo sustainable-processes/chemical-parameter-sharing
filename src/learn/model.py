@@ -264,7 +264,6 @@ class ColeyModel(torch.nn.Module):
 
     def forward(
         self,
-        *,
         product_fp,
         rxn_diff_fp,
         cat,
@@ -272,6 +271,7 @@ class ColeyModel(torch.nn.Module):
         sol2,
         reag1,
         reag2,
+        *,
         training=True,
         mode=TEACHER_FORCE,
     ):
