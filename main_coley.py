@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import src.reactions.get
 import src.reactions.filters
 import src.learn.ohe
+import src.learn.util
 
 import src.coley_code.model
 
@@ -45,8 +46,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.9
-train_val_split = 0.9
+train_test_split = 0.8
+train_val_split = 0.5
 
 test_idx = indexes[int(df.shape[0] * train_test_split):]
 train_val_idx = indexes[:int(df.shape[0] * train_test_split)]
@@ -124,6 +125,8 @@ y_val_data = (
 
 # %%
 
+train_mode = src.coley_code.model.HARD_SELECTION
+
 model = src.coley_code.model.build_teacher_forcing_model(
     pfp_len=train_product_fp.shape[-1], 
     rxnfp_len=train_rxn_diff_fp.shape[-1], 
@@ -135,7 +138,9 @@ model = src.coley_code.model.build_teacher_forcing_model(
     N_h1=1024, 
     N_h2=100,
     l2v=0, # TODO check what coef they used
-    mode=src.coley_code.model.TEACHER_FORCE,
+    mode=train_mode,
+    dropout_prob=0.2,
+    use_batchnorm=True,
 )
 
 # we use a separate model for prediction because we use a recurrent setup for prediction
@@ -152,6 +157,8 @@ pred_model = src.coley_code.model.build_teacher_forcing_model(
     N_h2=100,
     l2v=0,
     mode=src.coley_code.model.HARD_SELECTION,
+    dropout_prob=0.2,
+    use_batchnorm=True,
 )
 
 def mse_ignore_na(y_true, y_pred):
@@ -183,7 +190,7 @@ model.compile(
 
 src.coley_code.model.update_teacher_forcing_model_weights(update_model=pred_model, to_copy_model=model)
 
-cat_pred = model(x_train_data)[0]
+cat_pred = model(x_train_data if train_mode == src.coley_code.model.TEACHER_FORCE else x_train_eval_data)[0]
 print("true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
@@ -194,34 +201,29 @@ print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() 
 # %%
 
 h = model.fit(
-    x=x_train_data, y=y_train_data, 
-    epochs=20, verbose=1, batch_size=16,
-    validation_data=(x_val_data, y_val_data),
+    x=x_train_data if train_mode == src.coley_code.model.TEACHER_FORCE else x_train_eval_data,
+    y=y_train_data, 
+    epochs=20, verbose=1, batch_size=1024,
+    validation_data=(
+        x_val_data if train_mode == src.coley_code.model.TEACHER_FORCE else x_val_eval_data,
+        y_val_data,
+    ),
+    callbacks=[
+        tf.keras.callbacks.TensorBoard(log_dir=src.learn.util.log_dir(prefix="TF_", comment="_MOREDATA_REG_HARDSELECT")),
+    ]
 )
 
 # %%
 
 src.coley_code.model.update_teacher_forcing_model_weights(update_model=pred_model, to_copy_model=model)
 
-cat_pred = model(x_train_data)[0]
+cat_pred = model(x_train_data if train_mode == src.coley_code.model.TEACHER_FORCE else x_train_eval_data)[0]
 print("true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
 
 cat_pred = pred_model(x_train_eval_data)[0]
 print("[eval] true", (pd.Series(train_catalyst.numpy().argmax(axis=1)).value_counts() / train_catalyst.shape[0]).iloc[:5], sep="\n")
 print("[eval] pred", (pd.Series(cat_pred.numpy().argmax(axis=1)).value_counts() / cat_pred.shape[0]).iloc[:5], sep="\n")
-
-
-
-# %%
-
-plt.plot(h.history['c1_acc'], label="c1_acc")
-plt.plot(h.history['c1_top3'], label="c1_top3")
-plt.plot(h.history['c1_top5'], label="c1_top5")
-plt.plot(h.history['val_c1_acc'], label="val_c1_acc")
-plt.plot(h.history['val_c1_top3'], label="val_c1_top3")
-plt.plot(h.history['val_c1_top5'], label="val_c1_top5")
-plt.legend()
 
 # %%
 

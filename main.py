@@ -108,31 +108,31 @@ m = src.learn.model.ColeyModel(
     reag1_dim=train_data['reagents_1'].shape[-1],
     reag2_dim=train_data['reagents_2'].shape[-1],
     temp_dim=train_data['temperature'].shape[-1],
-    # use_batchnorm=True,
-    # dropout_prob=0.2,
+    use_batchnorm=True,
+    dropout_prob=0.2,
 )
 
-pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
-print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
-print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
+# print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
-train_acc = src.learn.metrics.get_topk_acc(
-    pred=pred['catalyst'], 
-    true=train_data['catalyst'],
-    k=[1,5],
-)
-train_eval_acc = src.learn.metrics.get_topk_acc(
-    pred=m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
-    true=train_data['catalyst'],
-    k=[1,5],
-)
-val_acc = src.learn.metrics.get_topk_acc(
-    pred=m.forward_dict(data=val_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
-    true=val_data['catalyst'],
-    k=[1,5],
-)
-print(f"untrained catalyst top 1 acc: {train_acc[1]=} {train_eval_acc[1]=} {val_acc[1]=}")
-print(f"untrained catalyst top 5 acc: {train_acc[5]=} {train_eval_acc[5]=} {val_acc[5]=}")
+# train_acc = src.learn.metrics.get_topk_acc(
+#     pred=pred['catalyst'], 
+#     true=train_data['catalyst'],
+#     k=[1,5],
+# )
+# train_eval_acc = src.learn.metrics.get_topk_acc(
+#     pred=m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
+#     true=train_data['catalyst'],
+#     k=[1,5],
+# )
+# val_acc = src.learn.metrics.get_topk_acc(
+#     pred=m.forward_dict(data=val_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
+#     true=val_data['catalyst'],
+#     k=[1,5],
+# )
+# print(f"untrained catalyst top 1 acc: {train_acc[1]=} {train_eval_acc[1]=} {val_acc[1]=}")
+# print(f"untrained catalyst top 5 acc: {train_acc[5]=} {train_eval_acc[5]=} {val_acc[5]=}")
 
 targets=[
     "catalyst",
@@ -151,33 +151,33 @@ losses, acc_metrics = src.learn.fit.train_loop(
     loss_fn=torch.nn.CrossEntropyLoss(), 
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     targets=targets,
-    val_data=val_data,
+    val_data=True,
     train_kwargs={"mode": src.learn.model.TEACHER_FORCE},
     val_kwargs={"mode": src.learn.model.HARD_SELECTION},
-    train_eval=True, 
+    train_eval=False, 
 )
 
-pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
-print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
-print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
+# print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
-train_acc = src.learn.metrics.get_topk_acc(
-    pred=pred['catalyst'], 
-    true=train_data['catalyst'],
-    k=[1,5],
-)
-train_eval_acc = src.learn.metrics.get_topk_acc(
-    pred=m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
-    true=train_data['catalyst'],
-    k=[1,5],
-)
-val_acc = src.learn.metrics.get_topk_acc(
-    pred=m.forward_dict(data=val_data)['catalyst'], 
-    true=val_data['catalyst'],
-    k=[1,5],
-)
-print(f"trained catalyst top 1 acc: {train_acc[1]=} {train_eval_acc[1]=} {val_acc[1]=}")
-print(f"trained catalyst top 5 acc: {train_acc[5]=} {train_eval_acc[5]=} {val_acc[5]=}")
+# train_acc = src.learn.metrics.get_topk_acc(
+#     pred=pred['catalyst'], 
+#     true=train_data['catalyst'],
+#     k=[1,5],
+# )
+# train_eval_acc = src.learn.metrics.get_topk_acc(
+#     pred=m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)['catalyst'], 
+#     true=train_data['catalyst'],
+#     k=[1,5],
+# )
+# val_acc = src.learn.metrics.get_topk_acc(
+#     pred=m.forward_dict(data=val_data)['catalyst'], 
+#     true=val_data['catalyst'],
+#     k=[1,5],
+# )
+# print(f"trained catalyst top 1 acc: {train_acc[1]=} {train_eval_acc[1]=} {val_acc[1]=}")
+# print(f"trained catalyst top 5 acc: {train_acc[5]=} {train_eval_acc[5]=} {val_acc[5]=}")
 
 # %%
 plt.plot(losses['sum']["train"], label="sum train"); plt.legend()
@@ -203,19 +203,19 @@ for t in possible_targets:
 
 # %%
 
-print("TEACHER_FORCE")
-pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
-print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
-print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("TEACHER_FORCE")
+# pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
+# print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
-print("HARD_SELECTION")
-pred = m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)
-print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
-print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("HARD_SELECTION")
+# pred = m.forward_dict(data=train_data, mode=src.learn.model.HARD_SELECTION)
+# print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
-print("SOFT_SELECTION")
-pred = m.forward_dict(data=train_data, mode=src.learn.model.SOFT_SELECTION)
-print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
-print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("SOFT_SELECTION")
+# pred = m.forward_dict(data=train_data, mode=src.learn.model.SOFT_SELECTION)
+# print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
+# print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
 #%%

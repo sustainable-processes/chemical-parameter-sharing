@@ -4,6 +4,7 @@ import torch
 import torchmetrics
 from tqdm import trange
 
+import src.learn.util
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -19,7 +20,7 @@ def train_loop(model, train_data, *, epochs, batch_size: typing.Union[float, int
                val_data=None, train_kwargs: dict = {}, val_kwargs: dict={}, train_eval: bool=True, write_summary: bool=True):
 
     if write_summary:
-        writer = SummaryWriter()
+        writer = SummaryWriter(log_dir=src.learn.util.log_dir(prefix="TORCH_"))
 
     train_size = train_data["product_fp"].shape[0]
     batch_size = get_batch_size(batch_size, length=train_size)
