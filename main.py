@@ -46,8 +46,8 @@ rng = np.random.default_rng(12345)
 indexes = np.arange(df.shape[0])
 rng.shuffle(indexes)
 
-train_test_split = 0.9
-train_val_split = 0.9
+train_test_split = 0.01
+train_val_split = 0.5
 
 test_idx = indexes[int(df.shape[0] * train_test_split) :]
 train_val_idx = indexes[: int(df.shape[0] * train_test_split)]
@@ -81,6 +81,8 @@ train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit
 )
 
 # del df
+
+# %%
 
 print("Loaded data")
 
@@ -123,7 +125,7 @@ m = src.learn.model.ColeyModel(
     dropout_prob=0.2,
 )
 
-# pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
+pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
 # print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 # print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
@@ -154,6 +156,8 @@ targets = [
     "temperature",
 ]
 
+# %%
+
 losses, acc_metrics = src.learn.fit.train_loop(
     model=m,
     train_data=train_data,
@@ -162,7 +166,7 @@ losses, acc_metrics = src.learn.fit.train_loop(
     loss_fn=torch.nn.CrossEntropyLoss(),
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     targets=targets,
-    val_data=True,
+    val_data=val_data,
     train_kwargs={"mode": src.learn.model.TEACHER_FORCE},
     val_kwargs={"mode": src.learn.model.HARD_SELECTION},
     train_eval=False,
