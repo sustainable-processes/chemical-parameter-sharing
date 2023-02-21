@@ -7,14 +7,14 @@ from rdkit.rdBase import BlockLogs
 
 
 def calc_fp(lst: list, radius=3, nBits=2048):
-    # Usage: 
+    # Usage:
     # radius = 3
     # nBits = 2048
     # p0 = calc_fp(data_df['product_0'][:10000], radius=radius, nBits=nBits)
-    
+
     ans = []
     for i in tqdm(lst):
-        #convert to mole object
+        # convert to mole object
         try:
             block = BlockLogs()
             mol = Chem.MolFromSmiles(i)
@@ -27,8 +27,9 @@ def calc_fp(lst: list, radius=3, nBits=2048):
             ans += [np.zeros((nBits,), dtype=int)]
     return ans
 
+
 def calc_fp_individual(smiles: str, radius=3, nBits=2048):
-    #ans = []
+    # ans = []
     try:
         block = BlockLogs()
         mol = Chem.MolFromSmiles(smiles)

@@ -2,7 +2,6 @@ import typing
 
 import sklearn
 import pandas as pd
-import torch
 
 
 class GetDummies(sklearn.base.TransformerMixin):
@@ -10,11 +9,12 @@ class GetDummies(sklearn.base.TransformerMixin):
     on train/test splits.
     Taken from: https://dantegates.github.io/2018/05/04/a-fast-one-hot-encoder-with-sklearn-and-pandas.html
     """
+
     def __init__(self, dtypes=None):
         self.input_columns = None
         self.final_columns = None
         if dtypes is None:
-            dtypes = [object, 'category']
+            dtypes = [object, "category"]
         self.dtypes = dtypes
 
     def fit(self, X, y=None, dummy_na=True, **kwargs):
@@ -22,7 +22,7 @@ class GetDummies(sklearn.base.TransformerMixin):
         X = pd.get_dummies(X, columns=self.input_columns, dummy_na=dummy_na)
         self.final_columns = X.columns
         return self
-        
+
     def transform(self, X, y=None, **kwargs):
         X = pd.get_dummies(X, columns=self.input_columns)
         X_columns = X.columns
@@ -34,12 +34,12 @@ class GetDummies(sklearn.base.TransformerMixin):
         # remove any new columns that may have resulted from values in
         # X that were not in the data set when fit
         return X[self.final_columns]
-    
+
     def get_feature_names(self):
         return tuple(self.final_columns)
 
 
-def apply_train_ohe_fit(df, train_idx, val_idx, tensor_func: typing.Optional[typing.Callable] = torch.Tensor):
+def apply_train_ohe_fit(df, train_idx, val_idx, tensor_func: typing.Callable):
     enc = GetDummies()
     _ = enc.fit(df.iloc[train_idx])
     _ohe = enc.transform(df)
