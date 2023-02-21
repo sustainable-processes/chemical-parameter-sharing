@@ -1,0 +1,16 @@
+name: reaction_modelling
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - pytorch
+  - tensorflow
+  - tensorboard
+  - pandas
+  - tqdm
+  - scikit-learn
+  - matplotlib
+  - torchmetrics
+  - black
+  - ipykernel

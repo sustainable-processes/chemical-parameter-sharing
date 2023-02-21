@@ -12,6 +12,7 @@ import src.learn.ohe
 import src.learn.model
 import src.learn.fit
 import src.learn.metrics
+# %%
 
 
 df = src.reactions.get.get_reaction_df(
