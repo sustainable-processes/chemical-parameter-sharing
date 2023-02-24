@@ -2,7 +2,7 @@
 1) Download the USPTO data from https://github.com/open-reaction-database/ord-data and put it in a folder called "data/USPTO/"
 1.1) You need to git clone the repo above, and you'll find the data in ord-data/data/
 1.2) It is batched by year, it's best to just maintain this batching, it will make it easier to handle (each file won't get excessively large)
-2) python USPTO_cleaning
+2) python USPTO_extraction.py
 
 # Output:
 1) A pickle file with the cleaned data for each folder of uspto data. NB: Temp always in C, time always in hours
@@ -13,27 +13,22 @@
 from ord_schema import message_helpers#, validations
 from ord_schema.proto import dataset_pb2
 
-#import math
+
 import pandas as pd
 import numpy as np
 import os
-#import wget
+
 import pickle
 import multiprocessing
 from joblib import Parallel, delayed
 from datetime import datetime
 
 from rdkit import Chem
-#from rdkit.Chem import AllChem
-#from sklearn import model_selection, metrics
-#from glob import glob
 
 from tqdm import tqdm
+import os
 
-# # Import pura
-# from pura.resolvers import resolve_identifiers
-# from pura.compound import CompoundIdentifierType
-# from pura.services import PubChem, CIR, CAS
+
 
 """
 # Disables RDKit whiny logging.
@@ -392,7 +387,7 @@ def get_file_names():
     # Set the directory you want to look in
     directory = "data/USPTO/ord-data/data/"
 
-    # Use os.listdir to get a list of all files in the directory
+    # Use listdir to get a list of all files in the directory
     folders = os.listdir(directory)
     files = []
     # Use a for loop to iterate over the files and print their names
@@ -407,6 +402,29 @@ def get_file_names():
                     files += [new_file]
     return files
 
+def merge_pickled_mol_names():
+    #if the file already exists, delete it
+    output_file_path = "data/USPTO/molecule_names/molecule_names.pkl"
+    if os.path.exists(output_file_path):
+        os.remove(output_file_path)
+    #create one big list of all the pickled names
+    folder_path = 'data/USPTO/molecule_names/'
+    onlyfiles = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+    full_lst = []
+    for file in tqdm(onlyfiles):
+        if file[0] != '.': #We don't want to try to unpickle .DS_Store
+            filepath = folder_path+file 
+            unpickled_lst = pd.read_pickle(filepath)
+            full_lst = full_lst + unpickled_lst
+            
+    unique_molecule_names = list(set(full_lst))
+    
+    #pickle the list
+    with open(output_file_path, 'wb') as f:
+        pickle.dump(unique_molecule_names, f)
+    
+
+
 def main(file):
     instance = OrdToPickle(file)
     instance.main()
@@ -416,7 +434,14 @@ def main(file):
 if __name__ == "__main__":
     
     start_time = datetime.now()
+    
+    pickled_data_path = 'data/USPTO/pickled_data'
+    molecule_name_path = 'data/USPTO/molecule_names'
 
+    if not os.path.exists(pickled_data_path):
+        os.makedirs(pickled_data_path)
+    if not os.path.exists(molecule_name_path):
+        os.makedirs(molecule_name_path)
     
     files = get_file_names()
     
@@ -425,9 +450,9 @@ if __name__ == "__main__":
     Parallel(n_jobs=num_cores)(delayed(main)(i) for i in inputs)
     
 
-    # for file in tqdm(files[0:10]):
-    #     instance = OrdToPickle(file)
-    #     instance.main()
+    # Create a list of all the unique molecule names
+    merge_pickled_mol_names()
+    
     
     end_time = datetime.now()
 
