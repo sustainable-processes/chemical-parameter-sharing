@@ -222,7 +222,7 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
     # Do solvents replacements (in case there are any smiles represented with names)
     
     solvents_list, solvents_dict = build_solvents_list_and_dict()
-    df = df.replace(solvents_dict) 
+    df = df.replace(solvents_dict) # This line was taking too long. Prbably good idea to restrict the number of columns this is run on, e.g. only on the agent columns, and we should remove the unnecessary columns before this step (ie if num solv+cat+reag is 10, we should remove all reactions with more than 10 agents).
     
     ## Remove reactions that have a catalyst with a non-molecular name, e.g. 'Catalyst A'
     wrong_cat_names = ['Catalyst A', 'catalyst', 'catalyst 1', 'catalyst A', 'catalyst VI', 'reaction mixture', 'same catalyst', 'solution']
