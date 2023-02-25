@@ -106,6 +106,31 @@ def remove_rare_molecules(df, columns: list, cutoff: int):
     else:
         print("Error: Too many columns to remove rare molecules from.")
 
+def canonicalize_smiles(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    return Chem.MolToSmiles(mol, isomericSmiles=True)
+        
+def build_solvents_list_and_dict():
+    solvents = pd.read_csv('data/USPTO/solvents.csv', index_col=0)
+    solvents.loc[375, 'smiles'] = 'ClP(Cl)Cl'
+    solvents.loc[405, 'smiles'] = 'ClS(Cl)=O'
+    
+    solvents['canonical_smiles'] = solvents['smiles'].apply(canonicalize_smiles)
+    
+    solvents_list = list(solvents['canonical_smiles'])
+    solvents_list += 'CO'
+    
+    
+    # Combine the lists into a sequence of key-value pairs
+    key_value_pairs = zip(list(solvents['stenutz_name']) + list(solvents['cosmo_name']), list(solvents['canonical_smiles']) + list(solvents['canonical_smiles']))
+
+    # Create a dictionary from the sequence
+    solvents_dict = dict(key_value_pairs)
+
+    solvents_dict['methanol'] = 'CO'
+    
+    return solvents_list, solvents_dict
+
    
 def build_replacements():
     molecule_replacements = {}
@@ -174,10 +199,7 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
     df = merge_pickles()
     print('All data: ', len(df))
     
-    
-
-    
-    # Remove reactions with too many components
+    # Remove reactions with too many reactants or products
     
     #reactant
     df = remove_reactions_with_too_many_of_component(df, 'reactant_', num_reactant)
@@ -187,6 +209,48 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
     df = remove_reactions_with_too_many_of_component(df, 'product_', num_product)
     df = remove_reactions_with_too_many_of_component(df, 'yield_', num_product)
     print('After removing reactions with too many products: ', len(df))
+    
+    # Map to canonical names using the dicts we created
+    
+    # Hanlding of molecules with names instead of SMILES
+    
+    # Make replacements for molecules with names instead of SMILES
+    # do the catalyst replacements that Alexander found, as well as other replacements
+    molecule_replacements = build_replacements()
+    df = df.replace(molecule_replacements) 
+    
+    # Do solvents replacements (in case there are any smiles represented with names)
+    
+    solvents_list, solvents_dict = build_solvents_list_and_dict()
+    df = df.replace(solvents_dict) 
+    
+    ## Remove reactions that have a catalyst with a non-molecular name, e.g. 'Catalyst A'
+    wrong_cat_names = ['Catalyst A', 'catalyst', 'catalyst 1', 'catalyst A', 'catalyst VI', 'reaction mixture', 'same catalyst', 'solution']
+    molecule_names = pd.read_pickle('data/USPTO/molecule_names/molecule_names.pkl')
+    
+    molecules_to_remove = wrong_cat_names + molecule_names
+    
+    cols = []
+    for col in list(df.columns):
+        if 'reagent' in col or 'solvent' in col or 'catalyst' in col:
+            cols += [col]
+    
+    for col in tqdm(cols):
+        df = df[~df[col].isin(molecules_to_remove)]
+    
+    print('After removing reactions with nonsensical/unresolvable names: ', len(df))
+    
+    # Replace any instances of an empty string with None
+    df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
+    
+    
+    # Find solvents from the solvents_list that are in any of the solv/reag/cat columns, and put them in their own column
+    
+    
+    
+    
+    
+    
         
     #cat
     df = remove_reactions_with_too_many_of_component(df, 'catalyst_', num_cat)
@@ -253,31 +317,7 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
         print('After removing reactions with rare reagent_1: ', len(df))
     
         
-    # Hanlding of molecules with names instead of SMILES
     
-    # Make replacements for molecules with names instead of SMILES
-    # do the catalyst replacements that Alexander found, as well as other replacements
-    molecule_replacements = build_replacements()
-    df = df.replace(molecule_replacements) 
-    
-    ## Remove reactions that have a catalyst with a non-molecular name, e.g. 'Catalyst A'
-    wrong_cat_names = ['Catalyst A', 'catalyst', 'catalyst 1', 'catalyst A', 'catalyst VI', 'reaction mixture', 'same catalyst', 'solution']
-    molecule_names = pd.read_pickle('data/USPTO/molecule_names/molecule_names.pkl')
-    
-    molecules_to_remove = wrong_cat_names + molecule_names
-    
-    cols = []
-    for col in list(df.columns):
-        if 'reagent' in col or 'solvent' in col or 'catalyst' in col:
-            cols += [col]
-    
-    for col in tqdm(cols):
-        df = df[~df[col].isin(molecules_to_remove)]
-    
-    print('After removing reactions with nonsensical/unresolvable names: ', len(df))
-    
-    # Replace any instances of an empty string with None
-    df.replace(r'^\s*$', np.nan, regex=True, inplace=True)
 
     
     

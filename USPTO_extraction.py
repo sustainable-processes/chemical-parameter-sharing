@@ -2,7 +2,7 @@
 1) Download the USPTO data from https://github.com/open-reaction-database/ord-data and put it in a folder called "data/USPTO/"
 1.1) You need to git clone the repo above, and you'll find the data in ord-data/data/
 1.2) It is batched by year, it's best to just maintain this batching, it will make it easier to handle (each file won't get excessively large)
-2) python USPTO_extraction.py
+2) python USPTO_extraction.py True
 
 # Output:
 1) A pickle file with the cleaned data for each folder of uspto data. NB: Temp always in C, time always in hours
@@ -27,6 +27,7 @@ from rdkit import Chem
 
 from tqdm import tqdm
 import os
+import sys
 
 
 
@@ -51,11 +52,12 @@ class OrdToPickle():
     3) Write to a pickle file
     """
 
-    def __init__(self, ord_file_path):
+    def __init__(self, ord_file_path, merge_cat_and_reag):
         self.ord_file_path = ord_file_path
         self.data = message_helpers.load_message(self.ord_file_path, dataset_pb2.Dataset)
         self.filename = self.data.name
         self.names_list = []
+        self.merge_cat_solv_reag = merge_cat_and_reag 
 
     def find_smiles(self, identifiers):
         block = BlockLogs()
@@ -104,6 +106,7 @@ class OrdToPickle():
         mapped_rxn_all = []
         reactants_all = []
         reagents_all = []
+        agents_all = []
         products_all = []
         solvents_all = []
         catalysts_all = []
@@ -179,9 +182,12 @@ class OrdToPickle():
                             elif rxn_role ==2: #reagent
                                 reagents += [r for r in smiles.split('.')]
                             elif rxn_role ==3: #solvent
-                                solvents += [smiles]
+                                # solvents += [smiles] # I initially tried to let the solvents stay together, but actually it's better to split them up
+                                # Examples like CO.O should probably be split into CO and O
+                                solvents += [r for r in smiles.split('.')]
                             elif rxn_role ==4: #catalyst
-                                catalysts += [smiles]
+                                # catalysts += [smiles] same as solvents
+                                catalysts += [r for r in smiles.split('.')]
                             elif rxn_role in [5,6,7]: #workup, internal standard, authentic standard. don't care about these
                                 continue
                             # elif rxn_role ==8: #product
@@ -290,9 +296,16 @@ class OrdToPickle():
 
             mapped_rxn_all += [mapped_rxn]
             reactants_all += [reactants]
-            reagents_all += [list(set(reagents_trimmed))]
-            solvents_all += [list(set(solvents))]
-            catalysts_all += [list(set(catalysts))]
+            
+            
+            
+            if self.merge_cat_solv_reag == True:
+                agents_all += [list(set(reagents_trimmed + catalysts + solvents))]
+            else:
+                solvents_all += [list(set(solvents))]
+                reagents_all += [list(set(reagents_trimmed))]
+                catalysts_all += [list(set(catalysts))]
+                
             
             temperature_all = [temperatures]
 
@@ -331,7 +344,7 @@ class OrdToPickle():
 
 
         
-        return mapped_rxn_all, reactants_all, reagents_all, solvents_all, catalysts_all, temperature_all, rxn_times_all, products_all, yields_all
+        return mapped_rxn_all, reactants_all, agents_all, reagents_all, solvents_all, catalysts_all, temperature_all, rxn_times_all, products_all, yields_all
 
     # create the column headers for the df
     def create_column_headers(self, df, base_string):
@@ -341,8 +354,7 @@ class OrdToPickle():
         return column_headers
     
     def build_full_df(self):
-        headers = ['mapped_rxn_', 'reactant_', 'reagent_',  'solvent_', 'catalyst_', 'temperature_', 'rxn_time_', 'product_', 'yield_']
-        #data_lists = [mapped_rxn, reactants_all, reagents_all, solvents_all, catalysts_all, temperature_all, rxn_times_all, products_all]
+        headers = ['mapped_rxn_', 'reactant_', 'agent_' 'reagent_',  'solvent_', 'catalyst_', 'temperature_', 'rxn_time_', 'product_', 'yield_']
         data_lists = self.build_rxn_lists()
         for i in range(len(headers)):
             new_df = pd.DataFrame(data_lists[i])
@@ -425,8 +437,8 @@ def merge_pickled_mol_names():
     
 
 
-def main(file):
-    instance = OrdToPickle(file)
+def main(file, merge_cat_and_reag):
+    instance = OrdToPickle(file, merge_cat_and_reag)
     instance.main()
     
     
@@ -434,6 +446,20 @@ def main(file):
 if __name__ == "__main__":
     
     start_time = datetime.now()
+    
+    args = sys.argv[1:]
+    
+    try:
+        merge_cat_and_reag = args[0]
+        if merge_cat_and_reag == 'True':
+            merge_cat_and_reag = True
+        elif merge_cat_and_reag == 'False':
+            merge_cat_and_reag = False
+        else:
+            raise IndexError
+    except IndexError:
+        print('Please enter True or False for the first argument')
+     
     
     pickled_data_path = 'data/USPTO/pickled_data'
     molecule_name_path = 'data/USPTO/molecule_names'
@@ -447,7 +473,7 @@ if __name__ == "__main__":
     
     num_cores = multiprocessing.cpu_count()
     inputs = tqdm(files)
-    Parallel(n_jobs=num_cores)(delayed(main)(i) for i in inputs)
+    Parallel(n_jobs=num_cores)(delayed(main)(i, merge_cat_and_reag) for i in inputs)
     
 
     # Create a list of all the unique molecule names
