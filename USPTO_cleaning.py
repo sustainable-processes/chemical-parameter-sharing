@@ -21,9 +21,14 @@ NB: Requires all the pickle files created by USPTO_extraction.py
 
 """
 
+
+
 #Still need to implement:
-## What should we do with the reactions where the reagent is Pd?
-## What should we do when the same molecule appears as both a reagent and a catalyst?
+## Bundle all the solvents/reagents/catalysts together
+## Apply a map to extract the solvents, given a list of solvents from Summit
+## Place metals as the first reagent to give the model the chance to predcit solvents
+
+# https://github.com/sustainable-processes/vle_prediction/blob/master/data/cosmo/solvent_descriptors.csv
 
 
 # Imports
@@ -169,30 +174,8 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
     df = merge_pickles()
     print('All data: ', len(df))
     
-    # If something appears both as a reagent and a catalyst, remove it from the reagent column
     
-    # Quite a few of the rows have Pd as a reagent. If the value in reagent_0 is already in catalyst_0, then replace the reagent value with np.NaN
-    # df3["reagent_0"] = df3.apply(lambda x: np.nan if (pd.notna(x["reagent_0"]) and pd.notna(x["catalyst_0"]) and x["reagent_0"] in x["catalyst_0"]) else x["reagent_0"], axis=1)
-    # df3["reagent_1"] = df3.apply(lambda x: np.nan if (pd.notna(x["reagent_1"]) and pd.notna(x["catalyst_0"]) and x["reagent_1"] in x["catalyst_0"]) else x["reagent_1"], axis=1)
-    # Let's use this code instead, to keep track of the remvoed items:
-    # removed_items = []
 
-    # df["reagent_0"] = df.apply(lambda x: (removed_items.append(x["reagent_0"]) or np.nan) if (pd.notna(x["reagent_0"]) and pd.notna(x["catalyst_0"]) and x["reagent_0"] in x["catalyst_0"]) else x["reagent_0"], axis=1)
-    # df["reagent_1"] = df.apply(lambda x: (removed_items.append(x["reagent_1"]) or np.nan) if (pd.notna(x["reagent_1"]) and pd.notna(x["catalyst_0"]) and x["reagent_1"] in x["catalyst_0"]) else x["reagent_1"], axis=1)
-    
-    # print('Reagents moved to catalyst column: ', list(set(removed_items)))
-    
-    
-    
-    
-    # Remove any reactions where the reagent is Pd
-    for i in range(num_reag):
-        df = df[df[f"reagent_{i}"] != '[Pd]']
-        df = df[df[f"reagent_{i}"] != '[Pd+2]']
-        df = df[df[f"reagent_{i}"] != '[Pd+4]']
-    df = df.reset_index(drop=True)
-    
-    print('After removing reactions with Pd as a reagent: ', len(df))
     
     # Remove reactions with too many components
     
