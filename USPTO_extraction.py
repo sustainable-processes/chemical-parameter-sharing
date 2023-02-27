@@ -3,6 +3,7 @@
 1.1) You need to git clone the repo above, and you'll find the data in ord-data/data/
 1.2) It is batched by year, it's best to just maintain this batching, it will make it easier to handle (each file won't get excessively large)
 2) python USPTO_extraction.py True
+3) Solvents list originally from https://github.com/sustainable-processes/vle_prediction/blob/master/data/cosmo/solvent_descriptors.csv (I've added methanol (CO), and also added 'ClP(Cl)Cl' and 'ClS(Cl)=O' as smiles strings)
 
 # Output:
 1) A pickle file with the cleaned data for each folder of uspto data. NB: Temp always in C, time always in hours
@@ -34,12 +35,12 @@ import sys
 """
 # Disables RDKit whiny logging.
 # """
-# import rdkit.rdBase as rkrb
-# import rdkit.RDLogger as rkl
+import rdkit.rdBase as rkrb
+import rdkit.RDLogger as rkl
 
-# logger = rkl.logger()
-# logger.setLevel(rkl.ERROR)
-# rkrb.DisableLog('rdApp.error')
+logger = rkl.logger()
+logger.setLevel(rkl.ERROR)
+rkrb.DisableLog('rdApp.error')
 from rdkit.rdBase import BlockLogs
 
 
@@ -52,13 +53,15 @@ class OrdToPickle():
     3) Write to a pickle file
     """
 
-    def __init__(self, ord_file_path, merge_cat_and_reag):
+    def __init__(self, ord_file_path, merge_cat_and_reag, replacements_dict, solvents_set):
         self.ord_file_path = ord_file_path
         self.data = message_helpers.load_message(self.ord_file_path, dataset_pb2.Dataset)
         self.filename = self.data.name
         self.names_list = []
         self.merge_cat_solv_reag = merge_cat_and_reag 
-
+        self.replacements_dict = replacements_dict
+        self.solvents_set = solvents_set
+        
     def find_smiles(self, identifiers):
         block = BlockLogs()
         for i in identifiers:
@@ -283,27 +286,60 @@ class OrdToPickle():
             reagents = [x for x in reagents if not (x.isdigit())]
 
             reactants = [self.clean_mapped_smiles(smi) for smi in reactants]
+            
             reagents = [self.clean_smiles(smi) for smi in reagents]
             solvents = [self.clean_smiles(smi) for smi in solvents]
             catalysts = [self.clean_smiles(smi) for smi in catalysts]
 
-            # if the reagent exists in another list, remove it
-            reagents_trimmed = []
-            for reag in reagents:
-                if reag not in reactants and reag not in solvents and reag not in catalysts:
-                    reagents_trimmed += [reag]
+            # Apply the replacements_dict to the reagents, solvents, and catalysts
+            reagents  = list((pd.Series(reagents, dtype=pd.StringDtype())).replace(self.replacements_dict))
+            solvents  = list((pd.Series(solvents, dtype=pd.StringDtype())).replace(self.replacements_dict))
+            catalysts = list((pd.Series(catalysts, dtype=pd.StringDtype())).replace(self.replacements_dict))
             
-
+            # Split out any instances of a . in the smiles strings
+            reagents = [substring for reagent in reagents for substring in reagent.split('.')]
+            solvents = [substring for solvent in solvents for substring in solvent.split('.')]
+            catalysts = [substring for catalyst in catalysts for substring in catalyst.split('.')]
+            
+            
             mapped_rxn_all += [mapped_rxn]
             reactants_all += [reactants]
             
             
             
             if self.merge_cat_solv_reag == True:
-                agents_all += [list(set(reagents_trimmed + catalysts + solvents))]
+                agents = catalysts + solvents + reagents # merge the solvents, reagents, and catalysts into one list
+                agents_set = set(agents) # this includes the solvnts
+                
+                # build two new lists, one with the solvents, and one with the reagents+catalysts
+                # Create a new set of solvents from agents_set
+                solvents = agents_set.intersection(self.solvents_set)
+
+                # Remove the solvents from agents_set
+                agents = agents_set.difference(solvents)
+                
+                     
+                # I think we should add some ordering to the agents
+                # What if we first order them alphabetically, and afterwards by putting the metals first in the list
+                
+                agents = sorted(list(agents))
+                solvents = sorted(list(solvents))
+           
+
+                # Ideally we'd order the agents, so we have the catalysts (metal centre) first, then the ligands, then the bases and finally any reagents
+                # We don't have a list of catalysts, and it's not straight forward to figure out if something is a catalyst or not (both chemically and computationally)
+                # Instead, let's move all agents that contain a metal centre to the front of the list
+                
+                metals = [
+    'Li', 'Be', 'Na', 'Mg', 'Al', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv'
+]
+                agents = [agent for agent in agents if any(metal in agent for metal in metals)] + [agent for agent in agents if not any(metal in agent for metal in metals)]
+ 
+                agents_all += [agents]
+                solvents_all += [solvents]
             else:
                 solvents_all += [list(set(solvents))]
-                reagents_all += [list(set(reagents_trimmed))]
+                reagents_all += [list(set(reagents))]
                 catalysts_all += [list(set(catalysts))]
                 
             
@@ -354,7 +390,7 @@ class OrdToPickle():
         return column_headers
     
     def build_full_df(self):
-        headers = ['mapped_rxn_', 'reactant_', 'agent_' 'reagent_',  'solvent_', 'catalyst_', 'temperature_', 'rxn_time_', 'product_', 'yield_']
+        headers = ['mapped_rxn_', 'reactant_', 'agent_', 'reagent_',  'solvent_', 'catalyst_', 'temperature_', 'rxn_time_', 'product_', 'yield_']
         data_lists = self.build_rxn_lists()
         for i in range(len(headers)):
             new_df = pd.DataFrame(data_lists[i])
@@ -366,11 +402,6 @@ class OrdToPickle():
                 full_df = pd.concat([full_df, new_df], axis=1)
         return full_df
     
-    #def clean_df(self,df):
-        # In the test case: data/ORD_USPTO/ord-data/data/59/ord_dataset-59f453c3a3d34a89bfd97b6b8b151908.pb.gz
-        #   there is only 1 reaction with 9 catalysts, all other reactions have like 1 or 2
-        #   Perhaps I should here add some hueristic that there's more than x unique catalysts, just filter out
-        #   the whole reaction
         
 
     def main(self):
@@ -416,7 +447,7 @@ def get_file_names():
 
 def merge_pickled_mol_names():
     #if the file already exists, delete it
-    output_file_path = "data/USPTO/molecule_names/molecule_names.pkl"
+    output_file_path = "data/USPTO/molecule_names/all_molecule_names.pkl"
     if os.path.exists(output_file_path):
         os.remove(output_file_path)
     #create one big list of all the pickled names
@@ -435,10 +466,94 @@ def merge_pickled_mol_names():
     with open(output_file_path, 'wb') as f:
         pickle.dump(unique_molecule_names, f)
     
+def canonicalize_smiles(smiles):
+    block = BlockLogs()
+    mol = Chem.MolFromSmiles(smiles)
+    return Chem.MolToSmiles(mol)
+    
+def build_solvents_set_and_dict():
+    solvents = pd.read_csv('data/USPTO/solvents.csv', index_col=0)
+    
+    solvents['canonical_smiles'] = solvents['smiles'].apply(canonicalize_smiles)
+    
+    solvents_set = set(solvents['canonical_smiles'])
+    
+    
+    # Combine the lists into a sequence of key-value pairs
+    key_value_pairs = zip(list(solvents['stenutz_name']) + list(solvents['cosmo_name']), list(solvents['canonical_smiles']) + list(solvents['canonical_smiles']))
+
+    # Create a dictionary from the sequence
+    solvents_dict = dict(key_value_pairs)
+    
+    return solvents_set, solvents_dict
+
+   
+def build_replacements():
+    block = BlockLogs()
+    molecule_replacements = {}
+     
+    # Add a catalyst to the molecule_replacements dict (Done by Alexander)
+    molecule_replacements['CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+3].[Rh+3]'] = 'CC(=O)[O-].[Rh+2]'
+    molecule_replacements['[CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+3]]'] = 'CC(=O)[O-].[Rh+2]'
+    molecule_replacements['[CC(C)(C)[P]([Pd][P](C(C)(C)C)(C(C)(C)C)C(C)(C)C)(C(C)(C)C)C(C)(C)C]'] = 'CC(C)(C)[PH]([Pd][PH](C(C)(C)C)(C(C)(C)C)C(C)(C)C)(C(C)(C)C)C(C)(C)C'
+    molecule_replacements['CCCC[N+](CCCC)(CCCC)CCCC.CCCC[N+](CCCC)(CCCC)CCCC.CCCC[N+](CCCC)(CCCC)CCCC.[Br-].[Br-].[Br-]'] = 'CCCC[N+](CCCC)(CCCC)CCCC.[Br-]'
+    molecule_replacements['[CCO.CCO.CCO.CCO.[Ti]]'] = 'CCO[Ti](OCC)(OCC)OCC'
+    molecule_replacements['[CC[O-].CC[O-].CC[O-].CC[O-].[Ti+4]]'] = 'CCO[Ti](OCC)(OCC)OCC'
+    molecule_replacements['[Cl[Ni]Cl.c1ccc(P(CCCP(c2ccccc2)c2ccccc2)c2ccccc2)cc1]'] = 'Cl[Ni]1(Cl)[P](c2ccccc2)(c2ccccc2)CCC[P]1(c1ccccc1)c1ccccc1'
+    molecule_replacements['[Cl[Pd](Cl)([P](c1ccccc1)(c1ccccc1)c1ccccc1)[P](c1ccccc1)(c1ccccc1)c1ccccc1]'] = 'Cl[Pd](Cl)([PH](c1ccccc1)(c1ccccc1)c1ccccc1)[PH](c1ccccc1)(c1ccccc1)c1ccccc1'
+    molecule_replacements['[Cl[Pd+2](Cl)(Cl)Cl.[Na+].[Na+]]'] = 'Cl[Pd]Cl'
+    molecule_replacements['Karstedt catalyst'] =   'C[Si](C)(C=C)O[Si](C)(C)C=C.[Pt]'
+    molecule_replacements["Karstedt's catalyst"] = 'C[Si](C)(C=C)O[Si](C)(C)C=C.[Pt]'
+    molecule_replacements['[O=C([O-])[O-].[Ag+2]]'] = 'O=C([O-])[O-].[Ag+]'
+    molecule_replacements['[O=S(=O)([O-])[O-].[Ag+2]]'] = 'O=S(=O)([O-])[O-].[Ag+]'
+    molecule_replacements['[O=[Ag-]]'] = 'O=[Ag]'
+    molecule_replacements['[O=[Cu-]]'] = 'O=[Cu]'
+    molecule_replacements['[Pd on-carbon]'] = '[C].[Pd]'
+    molecule_replacements['[TEA]'] = 'OCCN(CCO)CCO'
+    molecule_replacements['[Ti-superoxide]'] = 'O=[O-].[Ti]'
+    molecule_replacements['[[Pd].c1ccc(P(c2ccccc2)c2ccccc2)cc1]'] = '[Pd].c1ccc(P(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['[c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd-4]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['[c1ccc([P]([Pd][P](c2ccccc2)(c2ccccc2)c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['[c1ccc([P](c2ccccc2)(c2ccccc2)[Pd]([P](c2ccccc2)(c2ccccc2)c2ccccc2)([P](c2ccccc2)(c2ccccc2)c2ccccc2)[P](c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['[sulfated tin oxide]'] = 'O=S(O[Sn])(O[Sn])O[Sn]'
+    molecule_replacements['[tereakis(triphenylphosphine)palladium(0)]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['tetrakistriphenylphosphine palladium'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
+    molecule_replacements['[zeolite]'] = 'O=[Al]O[Al]=O.O=[Si]=O'
+    
+    # Molecules found among the most common names in molecule_names
+    molecule_replacements['TEA'] = 'OCCN(CCO)CCO'
+    molecule_replacements['hexanes'] = 'CCCCCC'
+    molecule_replacements['Hexanes'] = 'CCCCCC'
+    molecule_replacements['hexanes ethyl acetate'] = 'CCCCCC.CCOC(=O)C'
+    molecule_replacements['EtOAc hexanes'] = 'CCCCCC.CCOC(=O)C'
+    molecule_replacements['EtOAc-hexanes'] = 'CCCCCC.CCOC(=O)C'
+    molecule_replacements['ethyl acetate hexanes'] = 'CCCCCC.CCOC(=O)C'
+    molecule_replacements['cuprous iodide'] = '[Cu]I'
+    molecule_replacements['N,N-dimethylaminopyridine'] = 'n1ccc(N(C)C)cc1'
+    molecule_replacements['dimethyl acetal'] = 'CN(C)C(OC)OC'
+    molecule_replacements['cuprous chloride'] = 'Cl[Cu]'
+    molecule_replacements["N,N'-carbonyldiimidazole"] = 'O=C(n1cncc1)n2ccnc2'
+    # SiO2
+    # Went down the list of molecule_names until frequency was 806
+
+    # Iterate over the dictionary and canonicalize each SMILES string
+    for key, value in molecule_replacements.items():
+        mol = Chem.MolFromSmiles(value)
+        if mol is not None:
+            molecule_replacements[key] = Chem.MolToSmiles(mol)
+        
+        
+    return molecule_replacements
 
 
 def main(file, merge_cat_and_reag):
-    instance = OrdToPickle(file, merge_cat_and_reag)
+    
+    manual_replacements_dict = build_replacements()
+    solvents_set, solvents_dict = build_solvents_set_and_dict()
+    replacements_dict = manual_replacements_dict.update(solvents_dict)
+    
+    
+    instance = OrdToPickle(file, merge_cat_and_reag, replacements_dict, solvents_set)
     instance.main()
     
     
@@ -459,6 +574,7 @@ if __name__ == "__main__":
             raise IndexError
     except IndexError:
         print('Please enter True or False for the first argument')
+        print('Example: python USPTO_extraction.py True')
      
     
     pickled_data_path = 'data/USPTO/pickled_data'

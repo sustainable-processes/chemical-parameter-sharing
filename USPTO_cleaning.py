@@ -106,91 +106,9 @@ def remove_rare_molecules(df, columns: list, cutoff: int):
     else:
         print("Error: Too many columns to remove rare molecules from.")
 
-def canonicalize_smiles(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    return Chem.MolToSmiles(mol, isomericSmiles=True)
+
         
-def build_solvents_list_and_dict():
-    solvents = pd.read_csv('data/USPTO/solvents.csv', index_col=0)
-    solvents.loc[375, 'smiles'] = 'ClP(Cl)Cl'
-    solvents.loc[405, 'smiles'] = 'ClS(Cl)=O'
-    
-    solvents['canonical_smiles'] = solvents['smiles'].apply(canonicalize_smiles)
-    
-    solvents_list = list(solvents['canonical_smiles'])
-    solvents_list += 'CO'
-    
-    
-    # Combine the lists into a sequence of key-value pairs
-    key_value_pairs = zip(list(solvents['stenutz_name']) + list(solvents['cosmo_name']), list(solvents['canonical_smiles']) + list(solvents['canonical_smiles']))
 
-    # Create a dictionary from the sequence
-    solvents_dict = dict(key_value_pairs)
-
-    solvents_dict['methanol'] = 'CO'
-    
-    return solvents_list, solvents_dict
-
-   
-def build_replacements():
-    molecule_replacements = {}
-     
-    # Add a catalyst to the molecule_replacements dict (Done by Alexander)
-    molecule_replacements['CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+3].[Rh+3]'] = 'CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+2].[Rh+2]'
-    molecule_replacements['[CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+3]]'] = 'CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].CC(=O)[O-].[Rh+2].[Rh+2]'
-    molecule_replacements['[CC(C)(C)[P]([Pd][P](C(C)(C)C)(C(C)(C)C)C(C)(C)C)(C(C)(C)C)C(C)(C)C]'] = 'CC(C)(C)[PH]([Pd][PH](C(C)(C)C)(C(C)(C)C)C(C)(C)C)(C(C)(C)C)C(C)(C)C'
-    molecule_replacements['CCCC[N+](CCCC)(CCCC)CCCC.CCCC[N+](CCCC)(CCCC)CCCC.CCCC[N+](CCCC)(CCCC)CCCC.[Br-].[Br-].[Br-]'] = 'CCCC[N+](CCCC)(CCCC)CCCC.[Br-]'
-    molecule_replacements['[CCO.CCO.CCO.CCO.[Ti]]'] = 'CCO[Ti](OCC)(OCC)OCC'
-    molecule_replacements['[CC[O-].CC[O-].CC[O-].CC[O-].[Ti+4]]'] = 'CCO[Ti](OCC)(OCC)OCC'
-    molecule_replacements['[Cl[Ni]Cl.c1ccc(P(CCCP(c2ccccc2)c2ccccc2)c2ccccc2)cc1]'] = 'Cl[Ni]1(Cl)[P](c2ccccc2)(c2ccccc2)CCC[P]1(c1ccccc1)c1ccccc1'
-    molecule_replacements['[Cl[Pd](Cl)([P](c1ccccc1)(c1ccccc1)c1ccccc1)[P](c1ccccc1)(c1ccccc1)c1ccccc1]'] = 'Cl[Pd](Cl)([PH](c1ccccc1)(c1ccccc1)c1ccccc1)[PH](c1ccccc1)(c1ccccc1)c1ccccc1'
-    molecule_replacements['[Cl[Pd+2](Cl)(Cl)Cl.[Na+].[Na+]]'] = 'Cl[Pd]Cl'
-    molecule_replacements['Karstedt catalyst'] =   'C[Si](C)(C=C)O[Si](C)(C)C=C.[Pt]'
-    molecule_replacements["Karstedt's catalyst"] = 'C[Si](C)(C=C)O[Si](C)(C)C=C.[Pt]'
-    molecule_replacements['[O=C([O-])[O-].[Ag+2]]'] = 'O=C([O-])[O-].[Ag+].[Ag+]'
-    molecule_replacements['[O=S(=O)([O-])[O-].[Ag+2]]'] = 'O=S(=O)([O-])[O-].[Ag+].[Ag+]'
-    molecule_replacements['[O=[Ag-]]'] = 'O=[Ag]'
-    molecule_replacements['[O=[Cu-]]'] = 'O=[Cu]'
-    molecule_replacements['[Pd on-carbon]'] = '[C].[Pd]'
-    molecule_replacements['[TEA]'] = 'OCCN(CCO)CCO'
-    molecule_replacements['[Ti-superoxide]'] = 'O=[O-].[Ti]'
-    molecule_replacements['[[Pd].c1ccc(P(c2ccccc2)c2ccccc2)cc1]'] = '[Pd].c1ccc(P(c2ccccc2)c2ccccc2)cc1.c1ccc(P(c2ccccc2)c2ccccc2)cc1.c1ccc(P(c2ccccc2)c2ccccc2)cc1.c1ccc(P(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['[c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd-4]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['[c1ccc([P]([Pd][P](c2ccccc2)(c2ccccc2)c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['[c1ccc([P](c2ccccc2)(c2ccccc2)[Pd]([P](c2ccccc2)(c2ccccc2)c2ccccc2)([P](c2ccccc2)(c2ccccc2)c2ccccc2)[P](c2ccccc2)(c2ccccc2)c2ccccc2)cc1]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['[sulfated tin oxide]'] = 'O=S(O[Sn])(O[Sn])O[Sn]'
-    molecule_replacements['[tereakis(triphenylphosphine)palladium(0)]'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['tetrakistriphenylphosphine palladium'] = 'c1ccc([PH](c2ccccc2)(c2ccccc2)[Pd]([PH](c2ccccc2)(c2ccccc2)c2ccccc2)([PH](c2ccccc2)(c2ccccc2)c2ccccc2)[PH](c2ccccc2)(c2ccccc2)c2ccccc2)cc1'
-    molecule_replacements['[zeolite]'] = 'O=[Al]O[Al]=O.O=[Si]=O'
-    
-    # Molecules found among the most common names in molecule_names
-    molecule_replacements['TEA'] = 'OCCN(CCO)CCO'
-    molecule_replacements['hexanes'] = 'CCCCCC'
-    molecule_replacements['Hexanes'] = 'CCCCCC'
-    molecule_replacements['hexanes ethyl acetate'] = 'CCCCCC.CCOC(=O)C'
-    molecule_replacements['EtOAc hexanes'] = 'CCCCCC.CCOC(=O)C'
-    molecule_replacements['EtOAc-hexanes'] = 'CCCCCC.CCOC(=O)C'
-    molecule_replacements['ethyl acetate hexanes'] = 'CCCCCC.CCOC(=O)C'
-    molecule_replacements['cuprous iodide'] = '[Cu]I'
-    molecule_replacements['N,N-dimethylaminopyridine'] = 'n1ccc(N(C)C)cc1'
-    molecule_replacements['dimethyl acetal'] = 'CN(C)C(OC)OC'
-    molecule_replacements['cuprous chloride'] = 'Cl[Cu]'
-    molecule_replacements["N,N'-carbonyldiimidazole"] = 'O=C(n1cncc1)n2ccnc2'
-    # SiO2
-    # Went down the list of molecule_names until frequency was 806
-    
-    # Canonicalise the molecules
-    
-
-
-    # Iterate over the dictionary and canonicalize each SMILES string
-    for key, value in molecule_replacements.items():
-        mol = Chem.MolFromSmiles(value)
-        if mol is not None:
-            molecule_replacements[key] = Chem.MolToSmiles(mol)
-        
-        
-    return molecule_replacements
     
 
 def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_reactant=4, num_product=4, num_cat=1, num_solv=2, num_reag=2, rare_solv_0_cutoff=100, rare_solv_1_cutoff=50, rare_reag_0_cutoff=100, rare_reag_1_cutoff=50):
@@ -216,13 +134,16 @@ def main(clean_data_file_name = 'clean_data', consistent_yield = True, num_react
     
     # Make replacements for molecules with names instead of SMILES
     # do the catalyst replacements that Alexander found, as well as other replacements
+    print('molecule replacements started')
     molecule_replacements = build_replacements()
     df = df.replace(molecule_replacements) 
+    print('molecule replacements done')
     
     # Do solvents replacements (in case there are any smiles represented with names)
     
     solvents_list, solvents_dict = build_solvents_list_and_dict()
     df = df.replace(solvents_dict) # This line was taking too long. Prbably good idea to restrict the number of columns this is run on, e.g. only on the agent columns, and we should remove the unnecessary columns before this step (ie if num solv+cat+reag is 10, we should remove all reactions with more than 10 agents).
+    print('solvents replacements done')
     
     ## Remove reactions that have a catalyst with a non-molecular name, e.g. 'Catalyst A'
     wrong_cat_names = ['Catalyst A', 'catalyst', 'catalyst 1', 'catalyst A', 'catalyst VI', 'reaction mixture', 'same catalyst', 'solution']
