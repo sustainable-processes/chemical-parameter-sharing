@@ -1,9 +1,13 @@
 """
-1) Download the USPTO data from https://github.com/open-reaction-database/ord-data and put it in a folder called "data/USPTO/"
-1.1) You need to git clone the repo above, and you'll find the data in ord-data/data/
-1.2) It is batched by year, it's best to just maintain this batching, it will make it easier to handle (each file won't get excessively large)
-2) python USPTO_extraction.py True
-3) Solvents list originally from https://github.com/sustainable-processes/vle_prediction/blob/master/data/cosmo/solvent_descriptors.csv (I've added methanol (CO), and also added 'ClP(Cl)Cl' and 'ClS(Cl)=O' as smiles strings)
+After downloading the USPTO dataset from ORD, this script will extract the data and write it to a pickle file.
+
+Instructions:
+1) Create a folder called "data/USPTO" in the same directory as this script 
+2) Download the USPTO data from ORD
+2.1) While inside USPTO: git clone https://github.com/open-reaction-database/ord-data and you'll find the data in ord-data/data/
+2.2) You'll notice that the data is split into folders, each containing a number of ord files. They are batched by year.
+3) python USPTO_extraction.py True
+4) Solvents list originally from https://github.com/sustainable-processes/vle_prediction/blob/master/data/cosmo/solvent_descriptors.csv (I've added methanol (CO), and also added 'ClP(Cl)Cl' and 'ClS(Cl)=O' as smiles strings)
 
 # Output:
 1) A pickle file with the cleaned data for each folder of uspto data. NB: Temp always in C, time always in hours
