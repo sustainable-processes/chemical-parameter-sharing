@@ -40,6 +40,15 @@ Then execute the following commands in the root of the repository (stolen from: 
     - Hard vs soft parameter sharing: https://avivnavon.github.io/blog/parameter-sharing-in-deep-learning/
     - Condition prediction: https://github.com/Coughy1991/Reaction_condition_recommendation/tree/64f151e302abcb87e0a14088e08e11b4cea8d5ab
     
+    
+# Data
+1) USPTO from ORD using ORDerly
+2) Pistachio
+3) Suzuki reactions from Reaxys (cleaned by Alexander)
+4) https://github.com/jshmjs45/data_for_chem#data_from_cjhif_utf8
+
+
+
 # Timeline
 
 - By end of Nov: Complete 1 full path through the pipeline, choosing the easiest options for cleaning data, clustering, and NN. Plot our first parity plot
