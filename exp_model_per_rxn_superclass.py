@@ -6,22 +6,22 @@ import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 
-import src.reactions.get
-import src.reactions.filters
-import src.learn.ohe
-import src.learn.model
-import src.learn.fit
-import src.learn.metrics
+import param_sharing.reactions.get
+import param_sharing.reactions.filters
+import param_sharing.learn.ohe
+import param_sharing.learn.model
+import param_sharing.learn.fit
+import param_sharing.learn.metrics
 import config.single_vs_multi
 
 
-df = src.reactions.get.get_reaction_df(
+df = param_sharing.reactions.get.get_reaction_df(
     cleaned_data_path=pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
     rxn_classes_path=pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
     verbose=True,
 )
 
-mask = src.reactions.filters.get_classified_rxn_data_mask(df)
+mask = param_sharing.reactions.filters.get_classified_rxn_data_mask(df)
 
 # unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -62,22 +62,34 @@ train_rxn_diff_fp = torch.Tensor(rxn_diff_fp[train_idx])
 val_product_fp = torch.Tensor(product_fp[val_idx])
 val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
-train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(
+train_catalyst, val_catalyst, cat_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["catalyst_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_0, val_solvent_0, sol0_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_1, val_solvent_1, sol1_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_1"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_0,
+    val_reagents_0,
+    reag0_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_1,
+    val_reagents_1,
+    reag1_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_1"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_temperature,
+    val_temperature,
+    temp_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["temperature_0"]].fillna(-1.0), train_idx, val_idx, tensor_func=torch.Tensor
 )
 
@@ -130,7 +142,7 @@ for sc in super_classes:
         "temperature": val_temperature[sc_val_index][:cut_off],
     }
 
-    m = src.learn.model.ColeyModel(
+    m = param_sharing.learn.model.ColeyModel(
         product_fp_dim=train_data["product_fp"].shape[-1],
         rxn_diff_fp_dim=train_data["rxn_diff_fp"].shape[-1],
         cat_dim=train_data["catalyst"].shape[-1],
@@ -167,7 +179,7 @@ for sc in super_classes:
             "pred": m.forward_dict(data=val_data)[t],
         }
 
-    losses, acc_metrics = src.learn.fit.train_loop(
+    losses, acc_metrics = param_sharing.learn.fit.train_loop(
         model=m,
         train_data=train_data,
         epochs=config.single_vs_multi.epochs,
@@ -254,24 +266,24 @@ for sc in super_classes:
 print("get catalyst acc")
 
 for superclass in predictions:
-    train_acc = src.learn.metrics.get_topk_acc(
+    train_acc = param_sharing.learn.metrics.get_topk_acc(
         pred=predictions[superclass]["train"]["catalyst"]["pred"],
         true=predictions[superclass]["train"]["catalyst"]["true"],
         k=1,
     )
-    val_acc = src.learn.metrics.get_topk_acc(
+    val_acc = param_sharing.learn.metrics.get_topk_acc(
         pred=predictions[superclass]["val"]["catalyst"]["pred"],
         true=predictions[superclass]["val"]["catalyst"]["true"],
         k=1,
     )
     print(f"{superclass=}: {train_acc=}, {val_acc=}")
 
-train_acc = src.learn.metrics.get_topk_acc(
+train_acc = param_sharing.learn.metrics.get_topk_acc(
     pred=torch.cat([predictions[p]["train"]["catalyst"]["pred"] for p in predictions]),
     true=torch.cat([predictions[p]["train"]["catalyst"]["true"] for p in predictions]),
     k=[1, 5],
 )
-val_acc = src.learn.metrics.get_topk_acc(
+val_acc = param_sharing.learn.metrics.get_topk_acc(
     pred=torch.cat([predictions[p]["val"]["catalyst"]["pred"] for p in predictions]),
     true=torch.cat([predictions[p]["val"]["catalyst"]["true"] for p in predictions]),
     k=[1, 5],
@@ -279,7 +291,7 @@ val_acc = src.learn.metrics.get_topk_acc(
 print(f"trained catalyst top 1 acc: {train_acc[1]=} {val_acc[1]=}")
 print(f"trained catalyst top 5 acc: {train_acc[5]=} {val_acc[5]=}")
 
-train_acc = src.learn.metrics.get_topk_acc(
+train_acc = param_sharing.learn.metrics.get_topk_acc(
     pred=torch.cat(
         [
             untrained_predictions[p]["train"]["catalyst"]["pred"]
@@ -294,7 +306,7 @@ train_acc = src.learn.metrics.get_topk_acc(
     ),
     k=[1, 5],
 )
-val_acc = src.learn.metrics.get_topk_acc(
+val_acc = param_sharing.learn.metrics.get_topk_acc(
     pred=torch.cat(
         [
             untrained_predictions[p]["val"]["catalyst"]["pred"]

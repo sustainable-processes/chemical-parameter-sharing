@@ -5,8 +5,8 @@ from joblib import Parallel, delayed
 import numpy as np
 from tqdm import tqdm
 
-import src.reactions.fingerprint
-import src.reactions.get
+import param_sharing.reactions.fingerprint
+import param_sharing.reactions.get
 
 
 def generate_data(
@@ -24,8 +24,7 @@ def generate_data(
     radius: int = 3,
     nBits: int = 512,
 ):
-
-    df = src.reactions.get.get_reaction_df(
+    df = param_sharing.reactions.get.get_reaction_df(
         cleaned_data_path=cleaned_data_path,
         rxn_classes_path=rxn_classes_path,
     )
@@ -40,25 +39,33 @@ def generate_data(
     num_cores = multiprocessing.cpu_count()
     inputs = tqdm(df["product_0"])
     p0 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["product_1"])
     p1 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["product_2"])
     p2 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["product_3"])
     p3 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
@@ -75,25 +82,33 @@ def generate_data(
     num_cores = multiprocessing.cpu_count()
     inputs = tqdm(df["reactant_0"])
     r0 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["reactant_1"])
     r1 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["reactant_2"])
     r2 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 
     inputs = tqdm(df["reactant_3"])
     r3 = Parallel(n_jobs=num_cores)(
-        delayed(src.reactions.fingerprint.calc_fp_individual)(i, radius, nBits)
+        delayed(param_sharing.reactions.fingerprint.calc_fp_individual)(
+            i, radius, nBits
+        )
         for i in inputs
     )
 

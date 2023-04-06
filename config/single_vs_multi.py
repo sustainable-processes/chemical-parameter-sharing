@@ -8,7 +8,7 @@ train_val_split = 0.8
 
 train_cutoff = 100000
 val_cutoff = 10000
-targets=[
+targets = [
     "catalyst",
     "solvent_1",
     "solvent_2",

@@ -6,22 +6,23 @@ import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 
-import src.reactions.get
-import src.reactions.filters
-import src.learn.ohe
-import src.learn.model
-import src.learn.fit
-import src.learn.metrics
+import param_sharing.reactions.get
+import param_sharing.reactions.filters
+import param_sharing.learn.ohe
+import param_sharing.learn.model
+import param_sharing.learn.fit
+import param_sharing.learn.metrics
+
 # %%
 
 
-df = src.reactions.get.get_reaction_df(
+df = param_sharing.reactions.get.get_reaction_df(
     cleaned_data_path=pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
     rxn_classes_path=pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
     verbose=True,
 )
 
-mask = src.reactions.filters.get_classified_rxn_data_mask(df)
+mask = param_sharing.reactions.filters.get_classified_rxn_data_mask(df)
 
 # unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -62,22 +63,34 @@ train_rxn_diff_fp = torch.Tensor(rxn_diff_fp[train_idx])
 val_product_fp = torch.Tensor(product_fp[val_idx])
 val_rxn_diff_fp = torch.Tensor(rxn_diff_fp[val_idx])
 
-train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(
+train_catalyst, val_catalyst, cat_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["catalyst_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_0, val_solvent_0, sol0_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_1, val_solvent_1, sol1_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_1"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_0,
+    val_reagents_0,
+    reag0_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_0"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_1,
+    val_reagents_1,
+    reag1_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_1"]].fillna("NULL"), train_idx, val_idx, tensor_func=torch.Tensor
 )
-train_temperature, val_temperature, temp_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_temperature,
+    val_temperature,
+    temp_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["temperature_0"]].fillna(-1), train_idx, val_idx, tensor_func=torch.Tensor
 )
 
@@ -113,7 +126,7 @@ val_data = {
     "temperature": val_temperature[:cut_off],
 }
 
-m = src.learn.model.ColeyModel(
+m = param_sharing.learn.model.ColeyModel(
     product_fp_dim=train_data["product_fp"].shape[-1],
     rxn_diff_fp_dim=train_data["rxn_diff_fp"].shape[-1],
     cat_dim=train_data["catalyst"].shape[-1],
@@ -126,7 +139,7 @@ m = src.learn.model.ColeyModel(
     dropout_prob=0.2,
 )
 
-pred = m.forward_dict(data=train_data, mode=src.learn.model.TEACHER_FORCE)
+pred = m.forward_dict(data=train_data, mode=param_sharing.learn.model.TEACHER_FORCE)
 # print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 # print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
@@ -159,7 +172,7 @@ targets = [
 
 # %%
 
-losses, acc_metrics = src.learn.fit.train_loop(
+losses, acc_metrics = param_sharing.learn.fit.train_loop(
     model=m,
     train_data=train_data,
     epochs=50,
@@ -168,8 +181,8 @@ losses, acc_metrics = src.learn.fit.train_loop(
     optimizer=torch.optim.Adam(m.parameters(), lr=1e-4),
     targets=targets,
     val_data=val_data,
-    train_kwargs={"mode": src.learn.model.TEACHER_FORCE},
-    val_kwargs={"mode": src.learn.model.HARD_SELECTION},
+    train_kwargs={"mode": param_sharing.learn.model.TEACHER_FORCE},
+    val_kwargs={"mode": param_sharing.learn.model.HARD_SELECTION},
     train_eval=False,
 )
 
@@ -239,4 +252,4 @@ for t in possible_targets:
 # print("true", (pd.Series(train_data['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 # print("pred", (pd.Series(pred['catalyst'].argmax(dim=1)).value_counts() / train_data['catalyst'].shape[0]).iloc[:5], sep="\n")
 
-#%%
+# %%

@@ -8,21 +8,21 @@ import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-import src.reactions.get
-import src.reactions.filters
-import src.learn.ohe
-import src.learn.util
+import param_sharing.reactions.get
+import param_sharing.reactions.filters
+import param_sharing.learn.ohe
+import param_sharing.learn.util
 
-import src.coley_code.model
+import param_sharing.coley_code.model
 
 
-df = src.reactions.get.get_reaction_df(
+df = param_sharing.reactions.get.get_reaction_df(
     cleaned_data_path=pathlib.Path("data/ORD_USPTO/cleaned_data.pkl"),
     rxn_classes_path=pathlib.Path("data/ORD_USPTO/classified_rxn.smi"),
     verbose=True,
 )
 
-mask = src.reactions.filters.get_classified_rxn_data_mask(df)
+mask = param_sharing.reactions.filters.get_classified_rxn_data_mask(df)
 
 # unpickle
 rxn_diff_fp = np.load("data/ORD_USPTO/USPTO_rxn_diff_fp.pkl.npy", allow_pickle=True)
@@ -63,31 +63,39 @@ train_rxn_diff_fp = tf.convert_to_tensor(rxn_diff_fp[train_idx])
 val_product_fp = tf.convert_to_tensor(product_fp[val_idx])
 val_rxn_diff_fp = tf.convert_to_tensor(rxn_diff_fp[val_idx])
 
-train_catalyst, val_catalyst, cat_enc = src.learn.ohe.apply_train_ohe_fit(
+train_catalyst, val_catalyst, cat_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["catalyst_0"]].fillna("NULL"),
     train_idx,
     val_idx,
     tensor_func=tf.convert_to_tensor,
 )
-train_solvent_0, val_solvent_0, sol0_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_0, val_solvent_0, sol0_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_0"]].fillna("NULL"),
     train_idx,
     val_idx,
     tensor_func=tf.convert_to_tensor,
 )
-train_solvent_1, val_solvent_1, sol1_enc = src.learn.ohe.apply_train_ohe_fit(
+train_solvent_1, val_solvent_1, sol1_enc = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["solvent_1"]].fillna("NULL"),
     train_idx,
     val_idx,
     tensor_func=tf.convert_to_tensor,
 )
-train_reagents_0, val_reagents_0, reag0_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_0,
+    val_reagents_0,
+    reag0_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_0"]].fillna("NULL"),
     train_idx,
     val_idx,
     tensor_func=tf.convert_to_tensor,
 )
-train_reagents_1, val_reagents_1, reag1_enc = src.learn.ohe.apply_train_ohe_fit(
+(
+    train_reagents_1,
+    val_reagents_1,
+    reag1_enc,
+) = param_sharing.learn.ohe.apply_train_ohe_fit(
     df[["reagents_1"]].fillna("NULL"),
     train_idx,
     val_idx,
@@ -154,9 +162,9 @@ y_val_data = (
 
 # %%
 
-train_mode = src.coley_code.model.HARD_SELECTION
+train_mode = param_sharing.coley_code.model.HARD_SELECTION
 
-model = src.coley_code.model.build_teacher_forcing_model(
+model = param_sharing.coley_code.model.build_teacher_forcing_model(
     pfp_len=train_product_fp.shape[-1],
     rxnfp_len=train_rxn_diff_fp.shape[-1],
     c1_dim=train_catalyst.shape[-1],  # TODO check not top 100
@@ -174,7 +182,7 @@ model = src.coley_code.model.build_teacher_forcing_model(
 
 # we use a separate model for prediction because we use a recurrent setup for prediction
 # the pred model is only different after the catalyst
-pred_model = src.coley_code.model.build_teacher_forcing_model(
+pred_model = param_sharing.coley_code.model.build_teacher_forcing_model(
     pfp_len=train_product_fp.shape[-1],
     rxnfp_len=train_rxn_diff_fp.shape[-1],
     c1_dim=train_catalyst.shape[-1],
@@ -185,7 +193,7 @@ pred_model = src.coley_code.model.build_teacher_forcing_model(
     N_h1=1024,
     N_h2=100,
     l2v=0,
-    mode=src.coley_code.model.HARD_SELECTION,
+    mode=param_sharing.coley_code.model.HARD_SELECTION,
     dropout_prob=0.2,
     use_batchnorm=True,
 )
@@ -244,13 +252,13 @@ model.compile(
 
 # %%
 
-src.coley_code.model.update_teacher_forcing_model_weights(
+param_sharing.coley_code.model.update_teacher_forcing_model_weights(
     update_model=pred_model, to_copy_model=model
 )
 
 cat_pred = model(
     x_train_data
-    if train_mode == src.coley_code.model.TEACHER_FORCE
+    if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
     else x_train_eval_data
 )[0]
 print(
@@ -290,7 +298,7 @@ print(
 
 h = model.fit(
     x=x_train_data
-    if train_mode == src.coley_code.model.TEACHER_FORCE
+    if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
     else x_train_eval_data,
     y=y_train_data,
     epochs=20,
@@ -298,13 +306,13 @@ h = model.fit(
     batch_size=1024,
     validation_data=(
         x_val_data
-        if train_mode == src.coley_code.model.TEACHER_FORCE
+        if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
         else x_val_eval_data,
         y_val_data,
     ),
     callbacks=[
         tf.keras.callbacks.TensorBoard(
-            log_dir=src.learn.util.log_dir(
+            log_dir=param_sharing.learn.util.log_dir(
                 prefix="TF_", comment="_MOREDATA_REG_HARDSELECT"
             )
         ),
@@ -313,13 +321,13 @@ h = model.fit(
 
 # %%
 
-src.coley_code.model.update_teacher_forcing_model_weights(
+param_sharing.coley_code.model.update_teacher_forcing_model_weights(
     update_model=pred_model, to_copy_model=model
 )
 
 cat_pred = model(
     x_train_data
-    if train_mode == src.coley_code.model.TEACHER_FORCE
+    if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
     else x_train_eval_data
 )[0]
 print(

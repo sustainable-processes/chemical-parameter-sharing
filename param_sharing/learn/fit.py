@@ -4,7 +4,7 @@ import torch
 import torchmetrics
 from tqdm import trange
 
-import src.learn.util
+import param_sharing.learn.util
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -31,9 +31,10 @@ def train_loop(
     train_eval: bool = True,
     write_summary: bool = True,
 ):
-
     if write_summary:
-        writer = SummaryWriter(log_dir=src.learn.util.log_dir(prefix="TORCH_"))
+        writer = SummaryWriter(
+            log_dir=param_sharing.learn.util.log_dir(prefix="TORCH_")
+        )
 
     train_size = train_data["product_fp"].shape[0]
     batch_size = get_batch_size(batch_size, length=train_size)
@@ -76,7 +77,6 @@ def train_loop(
         }
 
     for e in range(epochs):
-
         output_str = f"{e+1}/{epochs} | "
 
         idxes = np.arange(train_size)

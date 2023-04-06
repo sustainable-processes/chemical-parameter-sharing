@@ -119,7 +119,6 @@ class ColeyBlock(torch.nn.Module):
         highway_input=None,
         training=True,
     ):
-
         mid = self.upstream(input, training=training)
         if self.stochastic_mid:
             mid = torch.nn.Dropout(p=0.5)(mid)
@@ -271,7 +270,6 @@ class ColeyModel(torch.nn.Module):
         training=True,
         mode=TEACHER_FORCE,
     ):
-
         cat_output, cat_mid = self.cat_block(
             input=torch.cat((product_fp, rxn_diff_fp), dim=1),
             highway_input=None,
@@ -319,7 +317,6 @@ class ColeyModel(torch.nn.Module):
         mode=TEACHER_FORCE,
         indexes=slice(None),
     ):
-
         output = self.forward(
             product_fp=data["product_fp"][indexes],
             rxn_diff_fp=data["rxn_diff_fp"][indexes],
