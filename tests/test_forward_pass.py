@@ -1,7 +1,6 @@
 import pytest
 
 
-
 def test_get_rxn_df(get_rxn_df):
     rxn_df = get_rxn_df.copy()
     rxn_df.iloc[0, 0] = "WOWOW this shouldnt be here"
@@ -67,7 +66,7 @@ def test_get_tf_data(get_tf_data):
         "build_tf_teacher_force_model",
     ],
 )
-def test_tf_teacher_force_model(build_model, get_tf_data, request):
+def test_tf_teacher_force_model_forward_pass(build_model, get_tf_data, request):
     (
         x_train_data,
         x_train_eval_data,
@@ -86,3 +85,99 @@ def test_tf_teacher_force_model(build_model, get_tf_data, request):
         if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
         else x_train_eval_data
     )[0]
+
+
+@pytest.mark.parametrize(
+    "build_model",
+    [
+        "build_tf_hard_select_model",
+        "build_tf_soft_select_model",
+        "build_tf_teacher_force_model",
+    ],
+)
+def test_tf_teacher_force_model_train(build_model, get_tf_data, request):
+    (
+        x_train_data,
+        x_train_eval_data,
+        y_train_data,
+        x_val_data,
+        x_val_eval_data,
+        y_val_data,
+    ) = get_tf_data
+
+    model, train_mode = request.getfixturevalue(build_model)
+
+    import param_sharing.coley_code.model
+
+    cat_pred = model(
+        x_train_data
+        if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
+        else x_train_eval_data
+    )[0]
+
+    import tensorflow as tf
+
+    model.compile(
+        loss=[
+            tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            tf.keras.losses.MeanSquaredError(),
+        ],
+        loss_weights=[1, 1, 1, 1, 1, 1e-4],
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        metrics={
+            "c1": [
+                "acc",
+                tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+            ],
+            "s1": [
+                "acc",
+                tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+            ],
+            "s2": [
+                "acc",
+                tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+            ],
+            "r1": [
+                "acc",
+                tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+            ],
+            "r2": [
+                "acc",
+                tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+            ],
+        },
+    )
+
+    import param_sharing.learn.util
+
+    h = model.fit(
+        x=x_train_data
+        if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
+        else x_train_eval_data,
+        y=y_train_data,
+        epochs=1,
+        verbose=1,
+        batch_size=10000,
+        validation_data=(
+            x_val_data
+            if train_mode == param_sharing.coley_code.model.TEACHER_FORCE
+            else x_val_eval_data,
+            y_val_data,
+        ),
+        callbacks=[
+            tf.keras.callbacks.TensorBoard(
+                log_dir=param_sharing.learn.util.log_dir(
+                    prefix="TF_", comment="_MOREDATA_REG_HARDSELECT"
+                )
+            ),
+        ],
+    )
