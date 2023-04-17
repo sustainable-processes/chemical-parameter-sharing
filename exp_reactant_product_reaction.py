@@ -1,3 +1,7 @@
+"""
+This code is playing around with representation learning for the fingerprints (WIP)
+"""
+
 # %%
 import numpy as np
 import pandas as pd

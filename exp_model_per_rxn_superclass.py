@@ -1,3 +1,9 @@
+"""
+We want to do parameter sharing across subclasses, therefore we are going to look at the case of having a model per rxn superclass
+We would expect that the set of models across subclasses to under perform the single across all subclasses. 
+"""
+
+
 # %%
 import pathlib
 

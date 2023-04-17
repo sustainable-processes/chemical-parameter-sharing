@@ -1,0 +1,9 @@
+[ ] make a note of the experiments got
+[ ] determine speed difference between keras and torch
+[ ] determine how to deal with the bad float data (drop?)
+[ ] add the models
+    - [ ] upstream sharing
+    - [ ] downstream sharing
+    - [ ] output to OHE -> fingerprint
+    - [ ] output to reduced OHE, input to full OHE
+[ ] experiment with representations of the fingerprint

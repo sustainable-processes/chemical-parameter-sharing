@@ -1,3 +1,7 @@
+"""
+This code runs the coley model as a single entity for all data (aka hard parameter sharing)
+"""
+
 # %%
 import pathlib
 

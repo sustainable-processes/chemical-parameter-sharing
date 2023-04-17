@@ -1,6 +1,6 @@
 """
 In this code we can evaluate the impact of training with hard or soft parameter selection.
-The evaluation is performed using hard parameter selection.
+The evaluation is performed using hard parameter selection using the tf keras code.
 """
 
 # %%

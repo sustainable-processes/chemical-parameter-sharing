@@ -47,3 +47,8 @@ https://pubs.acs.org/doi/10.1021/acscentsci.7b00572
 # Repo
 
 Coley: hard vs soft
+
+Experiments:
+- exp_single_model: This code runs a (the coley) model as a single entity for all data (aka hard parameter sharing)
+- exp_reactant_product_reaction: This code is playing around with representation learning for the fingerprints (WIP)
+- exp_model_per_target: 

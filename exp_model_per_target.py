@@ -1,3 +1,11 @@
+"""
+We are doing a recurrent prediction across several target classes eg: catalyst, solvent_1, solvent_2, reagents_1, reagents_2, temperature
+This code looks at the prediction performance across each of the targets
+
+
+"""
+
+
 # %%
 import pathlib
 

@@ -1,3 +1,9 @@
+"""
+We are doing a recurrent prediction across several target classes eg: catalyst, solvent_1, solvent_2, reagents_1, reagents_2, temperature
+This code builds a prediction model per target so we can evaluate the impact of adding additional targets to the prediction space. 
+As per the coley paper, we would expect that additional targets makes the prediction task easier.
+"""
+
 # %%
 import pathlib
 
