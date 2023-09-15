@@ -17,8 +17,6 @@ from rdkit.Chem import AllChem
 from rdkit.rdBase import BlockLogs
 from tqdm import tqdm
 
-from orderly.types import *
-
 LOG = logging.getLogger(__name__)
 
 
