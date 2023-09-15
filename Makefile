@@ -1,0 +1,124 @@
+current_dir = $(shell pwd)
+uid = $(shell id -u)
+gid = $(shell id -g)
+download_path=ord/
+
+clean_default_num_agent=3
+clean_default_num_cat=1
+clean_default_num_reag=2
+WANDB_ENTITY=ceb-sre
+dataset_version=v5
+
+####################################################################################################
+# 									make commands for parameter sharing
+####################################################################################################
+
+# Start with using gao model
+# 1. gen fp
+
+
+
+
+####################################################################################################
+# 									make commands copied from ORDerly paper
+####################################################################################################
+
+
+# 1. Generate fingerprints for each dataset
+## Super class
+fp_super_class_test:
+	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_super_class_test.parquet" --fp_size=2048 --overwrite=False
+# 2. Train & evaluate a model on each dataset
+
+
+# 1. gen fp
+
+fp_no_trust_no_map_test:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_test.parquet" --fp_size=2048 --overwrite=False
+fp_no_trust_no_map_train:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_train.parquet" --fp_size=2048 --overwrite=False
+
+fp_no_trust_with_map_test:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_test.parquet" --fp_size=2048 --overwrite=False
+fp_no_trust_with_map_train:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_train.parquet" --fp_size=2048 --overwrite=False
+
+fp_with_trust_with_map_test:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_test.parquet" --fp_size=2048 --overwrite=False
+fp_with_trust_with_map_train:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_train.parquet" --fp_size=2048 --overwrite=False
+
+fp_with_trust_no_map_test:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_test.parquet" --fp_size=2048 --overwrite=False
+fp_with_trust_no_map_train:
+	python -m orderly.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_train.parquet" --fp_size=2048 --overwrite=False
+
+paper_8: fp_no_trust_no_map_test fp_no_trust_no_map_train fp_no_trust_with_map_test fp_no_trust_with_map_train fp_with_trust_with_map_test fp_with_trust_with_map_train fp_with_trust_no_map_test fp_with_trust_no_map_train
+
+# 2. train models
+#Remember to switch env here (must contain TF, e.g. tf_mac_m1)
+# Full dataset
+no_trust_no_map_train:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_test.parquet" --output_folder_path="models/no_trust_no_map"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+no_trust_with_map_train:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_test.parquet" --output_folder_path="models/no_trust_with_map"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+with_trust_no_map_train:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_test.parquet" --output_folder_path="models/with_trust_no_map"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+with_trust_with_map_train:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_test.parquet" --output_folder_path="models/with_trust_with_map"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+# 20% of data
+no_trust_no_map_train_20:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_no_map_test.parquet" --output_folder_path="models/no_trust_no_map_20"  --train_fraction=0.2 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+no_trust_with_map_train_20:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_no_trust_with_map_test.parquet" --output_folder_path="models/no_trust_with_map_20"  --train_fraction=0.2 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+with_trust_no_map_train_20:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_no_map_test.parquet" --output_folder_path="models/with_trust_no_map_20"  --train_fraction=0.2 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY) --dataset_version=$(datset_version)
+
+with_trust_with_map_train_20:
+	python -m condition_prediction --train_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_train.parquet" --test_data_path="data/orderly/datasets_$(dataset_version)/orderly_with_trust_with_map_test.parquet" --output_folder_path="models/with_trust_with_map_20"  --train_fraction=0.2 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY)
+
+
+# Sweeps
+RANDOM_SEEDS = 12345 54321 98765
+TRAIN_FRACS =   1.0 0.2 0.4 0.6 0.8
+# Path on lightning
+# DATASETS_PATH = /project/studios/orderly-preprocessing/ORDerly/data/orderly/datasets_$(dataset_version)/
+# Normal path
+DATASETS_PATH = ORDerly/data/orderly/datasets_$(dataset_version)/
+DATASETS = no_trust_with_map  no_trust_no_map with_trust_with_map with_trust_no_map 
+dataset_size_sweep:
+	@for random_seed in ${RANDOM_SEEDS}; \
+	do \
+		for dataset in ${DATASETS}; \
+		do \
+			for train_frac in ${TRAIN_FRACS}; \
+			do \
+				rm -rf .tf_cache* && python -m condition_prediction --train_data_path=${DATASETS_PATH}/orderly_$${dataset}_train.parquet --test_data_path=${DATASETS_PATH}/orderly_$${dataset}_test.parquet --output_folder_path=models/$${dataset} --dataset_version=$(datset_version) --train_fraction=$${train_frac} --train_val_split=0.8 --random_seed=$${random_seed} --overwrite=True --batch_size=512 --epochs=100 --train_mode=0 --early_stopping_patience=0  --evaluate_on_test_data=True --wandb_entity=$(WANDB_ENTITY) ; \
+			done \
+		done \
+	done
+
+
+sweep_no_trust_no_map_train_commands:
+	python -m sweep sweeps/no_trust_no_map_train.yaml --dry_run
+
+sweep_no_trust_with_map_train_commands:
+	python -m sweep sweeps/no_trust_with_map_train.yaml --dry_run
+
+sweep_with_trust_no_map_train_commands:
+	python -m sweep sweeps/with_trust_no_map_train.yaml --dry_run
+
+sweep_with_trust_with_map_train_commands:
+	python -m sweep sweeps/with_trust_with_map_train.yaml --dry_run
+
+sweep_all: sweep_no_trust_no_map_train_commands sweep_no_trust_with_map_train_commands sweep_with_trust_no_map_train_commands sweep_with_trust_with_map_train_commands
+
+train_all: no_trust_no_map_train no_trust_with_map_train with_trust_no_map_train with_trust_with_map_train no_trust_no_map_train_20 no_trust_with_map_train_20 with_trust_no_map_train_20 with_trust_with_map_train_20
+
+
