@@ -156,7 +156,7 @@ def main(
     fp_output_folder_path = pathlib.Path(clean_data_folder_path / "fingerprints")
     fp_output_folder_path.mkdir(parents=True, exist_ok=True)
 
-    log_file = pathlib.Path(fp_output_folder_path / "fp.log")
+    log_file = pathlib.Path(fp_output_folder_path / f"{clean_data_file_path.name[:-8]}.log")
 
     logging.basicConfig(
         filename=log_file,
