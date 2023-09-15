@@ -13,8 +13,17 @@ dataset_version=v5
 # 									make commands for parameter sharing
 ####################################################################################################
 
-# Start with using gao model
-# 1. gen fp
+# 1. Generate fingerprints for each dataset
+## Super class
+fp_super_class_train:
+	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_train.parquet" --fp_size=2048 --overwrite=False
+fp_super_class_test:
+	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_test.parquet" --fp_size=2048 --overwrite=False
+fp_mid_class_train:
+	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_train.parquet" --fp_size=2048 --overwrite=False
+fp_mid_class_test:
+	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
+# 2. Train & evaluate a model on each dataset
 
 
 
@@ -23,12 +32,6 @@ dataset_version=v5
 # 									make commands copied from ORDerly paper
 ####################################################################################################
 
-
-# 1. Generate fingerprints for each dataset
-## Super class
-fp_super_class_test:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/orderly/datasets_$(dataset_version)/orderly_super_class_test.parquet" --fp_size=2048 --overwrite=False
-# 2. Train & evaluate a model on each dataset
 
 
 # 1. gen fp
