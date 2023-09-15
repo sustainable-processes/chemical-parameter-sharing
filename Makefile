@@ -24,10 +24,14 @@ fp_mid_class_train:
 fp_mid_class_test:
 	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
 # 2. Train & evaluate a model on each dataset
+super_class_training:
+	python -m gao_condition_prediction.condition_prediction --train_data_path="data/super_class_train.parquet" --test_data_path="data/super_class_test.parquet" --output_folder_path="models/super_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY)
+
+mid_class_training:
+	python -m gao_condition_prediction.condition_prediction --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=20 --evaluate_on_test_data=True --early_stopping_patience=5 --wandb_entity=$(WANDB_ENTITY)
 
 
-
-
+	
 ####################################################################################################
 # 									make commands copied from ORDerly paper
 ####################################################################################################
