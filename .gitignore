@@ -1,6 +1,8 @@
 # misc
 .DS_Store
-schneider_fp/.DS_Store
+data/
+wandb/
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
