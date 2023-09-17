@@ -122,8 +122,11 @@ class ConditionPrediction:
             "temperature",
             "yield_000",
         ]
-        train_df.drop(columns=unnecessary_columns, inplace=True)
-        test_df.drop(columns=unnecessary_columns, inplace=True)
+        for col in unnecessary_columns:
+            if col in train_df.columns:
+                train_df.drop(columns=[col], inplace=True)
+                test_df.drop(columns=[col], inplace=True)
+
         self.run_model(
             train_val_df=train_df,
             test_df=test_df,
