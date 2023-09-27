@@ -904,7 +904,7 @@ class ConditionPrediction:
 )
 @click.option(
     "--wandb_project",
-    default="orderly",
+    default="param-sharing",
     type=str,
     help="The project to use for logging to wandb",
 )
