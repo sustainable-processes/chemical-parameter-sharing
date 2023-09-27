@@ -350,7 +350,7 @@ class ConditionPrediction:
         cache_test_data: bool = False,
         eager_mode: bool = False,
         wandb_logging: bool = True,
-        wandb_project: str = "orderly",
+        wandb_project: str = "param-sharing",
         wandb_entity: Optional[str] = None,
         wandb_tags: Optional[List[str]] = None,
         wandb_group: Optional[str] = None,
