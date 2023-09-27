@@ -16,36 +16,36 @@ dataset_version=v5
 # 1. Generate fingerprints for each dataset
 ## Super class
 fp_super_class_train:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_train.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_test:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_test.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_test.parquet" --fp_size=2048 --overwrite=False
 fp_mid_class_train:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_train.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_train.parquet" --fp_size=2048 --overwrite=False
 fp_mid_class_test:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_fgi_train:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_fgi_train.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_fgi_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_fgi_test:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_fgi_test.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_fgi_test.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_reductions_train:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_reductions_train.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_reductions_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_reductions_test:
-	python -m gao_condition_prediction.gen_fp --clean_data_folder_path="data/super_class_reductions_test.parquet" --fp_size=2048 --overwrite=False
+	python -m condition_prediction.gen_fp --clean_data_folder_path="data/super_class_reductions_test.parquet" --fp_size=2048 --overwrite=False
 
 remaining_fp: fp_super_class_fgi_train fp_super_class_fgi_test fp_super_class_reductions_train fp_super_class_reductions_test
 
 # 2. Train & evaluate a model on each dataset
 super_class_training_c_c:
-	python -m gao_condition_prediction --train_data_path="data/super_class_train.parquet" --test_data_path="data/super_class_test.parquet" --output_folder_path="models/super_class_c_c"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m condition_prediction --train_data_path="data/super_class_train.parquet" --test_data_path="data/super_class_test.parquet" --output_folder_path="models/super_class_c_c"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
 super_class_fgi_training:
-	python -m gao_condition_prediction --train_data_path="data/super_class_fgi_train.parquet" --test_data_path="data/super_class_fgi_test.parquet" --output_folder_path="models/super_class_fgi"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m condition_prediction --train_data_path="data/super_class_fgi_train.parquet" --test_data_path="data/super_class_fgi_test.parquet" --output_folder_path="models/super_class_fgi"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
 super_class_reductions_training:
-	python -m gao_condition_prediction --train_data_path="data/super_class_reductions_train.parquet" --test_data_path="data/super_class_reductions_test.parquet" --output_folder_path="models/super_class_reductions"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m condition_prediction --train_data_path="data/super_class_reductions_train.parquet" --test_data_path="data/super_class_reductions_test.parquet" --output_folder_path="models/super_class_reductions"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 	
 mid_class_training:
-	python -m gao_condition_prediction --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m condition_prediction --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
 ####################################################################################################
 # 									make commands copied from ORDerly paper
