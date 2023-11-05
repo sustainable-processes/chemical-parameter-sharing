@@ -51,7 +51,7 @@ def build_teacher_forcing_model(
 ) -> tf.keras.models.Model:
     input_pfp = tf.keras.layers.Input(shape=(pfp_len,), name="input_pfp")
     input_rxnfp = tf.keras.layers.Input(shape=(rxnfp_len,), name="input_rxnfp")
-    input_class = tf.keras.layers.Input(shape=(12,), name="input_class")
+    input_class = tf.keras.layers.Input(shape=(11,), name="input_class")
 
     if mode == TEACHER_FORCE:
         input_mol1 = tf.keras.layers.Input(shape=(mol1_dim,), name="input_mol1")
@@ -74,7 +74,6 @@ def build_teacher_forcing_model(
     # It's upstream parameter sharing, so they get merged after only 1-2 layers (can try both!)
     
     # Define layers for each class
-    layer_0 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_0",)
     layer_1 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_1",)
     layer_2 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_2",)
     layer_3 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_3",)
@@ -91,7 +90,6 @@ def build_teacher_forcing_model(
     param_sharing_layer = tf.switch_case(
         tf.argmax(input_class, axis=-1),
         branch_fns={
-            0: lambda: layer_0(concat_fp),
             1: lambda: layer_1(concat_fp),
             2: lambda: layer_2(concat_fp),
             3: lambda: layer_3(concat_fp),
