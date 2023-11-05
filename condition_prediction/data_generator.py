@@ -30,6 +30,7 @@ class GenerateData:
     fp_size: int
     radius: int = 3
     df: pd.DataFrame
+    class_id: NDArray[np.int32]
     product_fp: Optional[NDArray[np.int64]] = None
     rxn_diff_fp: Optional[NDArray[np.int64]] = None
     mol1: NDArray[np.float32]
@@ -70,6 +71,7 @@ class GenerateData:
                 self.mol5,
                 self.product_fp,
                 self.rxn_diff_fp,
+                self.class_id,
                 self.radius,
                 self.fp_size,
             )
@@ -85,12 +87,14 @@ class GenerateData:
         mol5,
         product_fp,
         rxn_diff_fp,
+        class_id,
         radius=3,
         fp_size=2048,
     ):
         return (
             product_fp[idx],
             rxn_diff_fp[idx],
+            class_id[idx],
             mol1[idx],
             mol2[idx],
             mol3[idx],
@@ -98,31 +102,33 @@ class GenerateData:
             mol5[idx],
         )
 
-    @staticmethod
-    def _map_idx_to_data_gen_fp(
-        df,
-        idx,
-        mol1,
-        mol2,
-        mol3,
-        mol4,
-        mol5,
-        radius=3,
-        fp_size=2048,
-    ):
-        product_fp, rxn_diff_fp = GenerateData.get_fp(
-            df.iloc[idx], radius=radius, fp_size=fp_size
-        )
+    # TODO: Gen FP on the fly? Prob not worth it
+    # @staticmethod
+    # def _map_idx_to_data_gen_fp(
+    #     df,
+    #     idx,
+    #     mol1,
+    #     mol2,
+    #     mol3,
+    #     mol4,
+    #     mol5,
+    #     radius=3,
+    #     fp_size=2048,
+    # ):
+    #     product_fp, rxn_diff_fp = GenerateData.get_fp(
+    #         df.iloc[idx], radius=radius, fp_size=fp_size
+    #     )
 
-        return (
-            product_fp,
-            rxn_diff_fp,
-            mol1[idx],
-            mol2[idx],
-            mol3[idx],
-            mol4[idx],
-            mol5[idx],
-        )
+    #     return (
+    #         product_fp,
+    #         rxn_diff_fp,
+    #         class_id[idx],
+    #         mol1[idx],
+    #         mol2[idx],
+    #         mol3[idx],
+    #         mol4[idx],
+    #         mol5[idx],
+    #     )
 
     @staticmethod
     def get_fp(df: pd.DataFrame, radius: int, fp_size: int):
@@ -166,6 +172,7 @@ def get_dataset(
     mol4: NDArray[np.float32],
     mol5: NDArray[np.float32],
     df: Optional[pd.DataFrame] = None,
+    class_id: Optional[NDArray[np.int32]] = None,
     fp: Optional[NDArray[np.int64]] = None,
     # mode: int = TEACHER_FORCE,
     fp_size: int = 2048,
@@ -211,6 +218,7 @@ def get_dataset(
     fp_generator = GenerateData(
         fp_size=fp_size,
         df=df,
+        class_id=class_id,
         product_fp=product_fp,
         rxn_diff_fp=rxn_diff_fp,
         mol1=mol1,
@@ -238,7 +246,7 @@ def get_dataset(
         map_func=lambda idx: tf.py_function(
             fp_generator.map_idx_to_data,
             inp=[idx],
-            Tout=[tf.int64] * 2 + [tf.float32] * 5,
+            Tout=[tf.int64] * 2 + [tf.int32] + [tf.float32] * 5,
         ),
         # num_parallel_calls=os.cpu_count(), deterministic=False
     )
@@ -378,6 +386,7 @@ def get_datasets(
         train_mol4,
         train_mol5,
         df=df.iloc[train_idx],
+        class_id=df.loc[:, ["super class"]].iloc[train_idx].astype(np.int32).values,
         fp=train_val_fp[train_idx] if train_val_fp is not None else None,
         # mode=train_mode,
         fp_size=fp_size,
@@ -396,6 +405,7 @@ def get_datasets(
         val_mol4,
         val_mol5,
         df=df.iloc[val_idx],
+        class_id=df.loc[:, ["super class"]].iloc[val_idx].astype(np.int32).values,
         fp=train_val_fp[val_idx] if train_val_fp is not None else None,
         # mode=val_mode,
         fp_size=fp_size,
@@ -415,6 +425,7 @@ def get_datasets(
             test_mol4,
             test_mol5,
             df=df.iloc[test_idx],
+            class_id=df.loc[:, ["super class"]].iloc[test_idx].astype(np.int32).values,
             fp=test_fp,
             # mode=mode,
             fp_size=fp_size,
@@ -446,14 +457,14 @@ def _fixup_shape(X, Y):
 
 def rearrange_data_teacher_force(*data):
     X = tuple(data)
-    y = tuple(data[2:])
+    y = tuple(data[3:]) #don't include class_id
     X, y = _fixup_shape(X, y)
     return X, y
 
 
 def rearrange_data(*data):
-    X = tuple(data[:2])
-    y = tuple(data[2:])
+    X = tuple(data[:3]) 
+    y = tuple(data[3:]) #don't include class_id
     X, y = _fixup_shape(X, y)
     return X, y
 
