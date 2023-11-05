@@ -32,6 +32,63 @@ def add_dropout_and_batchnorm(
         )(layer)
     return layer
 
+# class ParamSharingLayer(tf.keras.layers.Layer):
+
+#     def call(self, inputs):
+#         concat_fp, input_class, l2v = inputs
+#         l2v=0.01
+#         # Define layers for each class
+#         layer_0 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_0",)
+#         layer_1 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_1",)
+#         layer_2 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_2",)
+#         layer_3 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_3",)
+#         layer_4 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_4",)
+#         layer_5 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_5",)
+#         layer_6 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_6",)
+#         layer_7 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_7",)
+#         layer_8 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_8",)
+#         layer_9 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_9",)
+#         layer_10 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_10",)
+#         layer_11 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_11",)
+
+
+#         # Define parameter sharing layer
+#         param_sharing_layer = tf.keras.layers.Lambda(lambda x:
+#             tf.switch_case(
+#             x[0], # input_class is already an int, not OHE, so we just use it directly
+#             branch_fns={
+#                 0: lambda: layer_0(concat_fp), # There aren't actually any reactions of class 0, but we need to define it anyway
+#                 1: lambda: layer_1(concat_fp),
+#                 2: lambda: layer_2(concat_fp),
+#                 3: lambda: layer_3(concat_fp),
+#                 4: lambda: layer_4(concat_fp),
+#                 5: lambda: layer_5(concat_fp),
+#                 6: lambda: layer_6(concat_fp),
+#                 7: lambda: layer_7(concat_fp),
+#                 8: lambda: layer_8(concat_fp),
+#                 9: lambda: layer_9(concat_fp),
+#                 10: lambda: layer_10(concat_fp),
+#                 11: lambda: layer_11(concat_fp),
+#             }
+#         )
+#         )(input_class)
+
+#         return param_sharing_layer
+class ParamSharingLayer(tf.keras.layers.Layer):
+    def __init__(self, units, l2v, **kwargs):
+        super().__init__(**kwargs)
+        self.units = units
+        self.l2v = l2v
+        self.shared_layers = [tf.keras.layers.Dense(units, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name=f"layer_{i}") for i in range(12)]
+
+    def call(self, inputs):
+        concat_fp, input_class = inputs
+        # Select the correct layer based on the input class
+        output = tf.switch_case(branch_index=input_class,
+                                branch_fns={i: lambda: self.shared_layers[i](concat_fp) for i in range(12)})
+        return output
+
+
 
 def build_teacher_forcing_model(
     pfp_len=2048,
@@ -51,7 +108,6 @@ def build_teacher_forcing_model(
 ) -> tf.keras.models.Model:
     input_pfp = tf.keras.layers.Input(shape=(pfp_len,), name="input_pfp")
     input_rxnfp = tf.keras.layers.Input(shape=(rxnfp_len,), name="input_rxnfp")
-    input_class = tf.keras.layers.Input(shape=(11,), name="input_class")
 
     if mode == TEACHER_FORCE:
         input_mol1 = tf.keras.layers.Input(shape=(mol1_dim,), name="input_mol1")
@@ -68,42 +124,14 @@ def build_teacher_forcing_model(
     else:
         raise NotImplementedError(f"unknown for {mode=}")
 
+    input_class = tf.keras.layers.Input(batch_shape=(1,), dtype='int32', name="input_class")
+
     concat_fp = tf.keras.layers.Concatenate(axis=1)([input_pfp, input_rxnfp])
     
     # add parameter sharing here, one route per class
     # It's upstream parameter sharing, so they get merged after only 1-2 layers (can try both!)
     
-    # Define layers for each class
-    layer_1 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_1",)
-    layer_2 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_2",)
-    layer_3 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_3",)
-    layer_4 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_4",)
-    layer_5 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_5",)
-    layer_6 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_6",)
-    layer_7 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_7",)
-    layer_8 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_8",)
-    layer_9 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_9",)
-    layer_10 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_10",)
-    layer_11 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_11",)
-
-    # Define parameter sharing layer
-    param_sharing_layer = tf.switch_case(
-        tf.argmax(input_class, axis=-1),
-        branch_fns={
-            1: lambda: layer_1(concat_fp),
-            2: lambda: layer_2(concat_fp),
-            3: lambda: layer_3(concat_fp),
-            4: lambda: layer_4(concat_fp),
-            5: lambda: layer_5(concat_fp),
-            6: lambda: layer_6(concat_fp),
-            7: lambda: layer_7(concat_fp),
-            8: lambda: layer_8(concat_fp),
-            9: lambda: layer_9(concat_fp),
-            10: lambda: layer_10(concat_fp),
-            11: lambda: layer_11(concat_fp),
-        }
-    )
-
+    param_sharing_output = ParamSharingLayer(units=1000, l2v=l2v)([concat_fp, input_class])
 
     # h1 = tf.keras.layers.Dense(
     #     1000,
@@ -112,7 +140,7 @@ def build_teacher_forcing_model(
     #     name="fp_transform1",
     # )(concat_fp)
     h1 = add_dropout_and_batchnorm(
-        param_sharing_layer,
+        param_sharing_output,
         dropout_prob=dropout_prob,
         use_batchnorm=use_batchnorm,
         force_stochastic=False,
@@ -354,6 +382,7 @@ def build_teacher_forcing_model(
             [
                 input_pfp,
                 input_rxnfp,
+                input_class,
                 input_mol1,
                 input_mol2,
                 input_mol3,
@@ -363,7 +392,7 @@ def build_teacher_forcing_model(
             output,
         )
     elif mode == HARD_SELECTION or mode == SOFT_SELECTION:
-        model = tf.keras.models.Model([input_pfp, input_rxnfp], output)
+        model = tf.keras.models.Model([input_pfp, input_rxnfp, input_class], output)
     else:
         raise NotImplementedError(f"unknown for {mode=}")
 
@@ -372,18 +401,7 @@ def build_teacher_forcing_model(
 
 def update_teacher_forcing_model_weights(update_model, to_copy_model):
     layers = [
-        "layer_0",
-        "layer_1",
-        "layer_2",
-        "layer_3",
-        "layer_4",
-        "layer_5",
-        "layer_6",
-        "layer_7",
-        "layer_8",
-        "layer_9",
-        "layer_10",
-        "layer_11",
+        # "param_sharing_layer",
         "fp_transform",
         "mol1_dense",
         "mol2_dense",
@@ -406,6 +424,6 @@ def update_teacher_forcing_model_weights(update_model, to_copy_model):
         "mol5",
     ]
     layers += [i.name for i in to_copy_model.layers if "batchnorm" in i.name]
-
     for l in layers:
         update_model.get_layer(l).set_weights(to_copy_model.get_layer(l).get_weights())
+
