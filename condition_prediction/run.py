@@ -468,6 +468,7 @@ class ConditionPrediction:
 
         # Ensure that TF datasets are in correct shape, forces the data to be formatted correctly whether it's teacherforcing or not,
         # Converts the data into X and y
+        # Currently train_dataset is a generator, not the actual data
         train_dataset = train_dataset.map(
             rearrange_data_teacher_force
             if train_mode == TEACHER_FORCE
@@ -497,8 +498,9 @@ class ConditionPrediction:
         del train_val_df
         del test_df
 
+
+
         LOG.info("Data ready for modelling")
-        LOG.info(train_dataset)
         ### Model Setup ###
         model = build_teacher_forcing_model(
             pfp_len=fp_size,
@@ -510,7 +512,7 @@ class ConditionPrediction:
             mol5_dim=len(encoders[4].categories_[0]),
             N_h1=hidden_size_1,
             N_h2=hidden_size_2,
-            l2v=0,  # TODO check what coef they used
+            l2v=0.01,  # TODO check what coef they used
             mode=train_mode,
             dropout_prob=dropout,
             use_batchnorm=True,
@@ -532,7 +534,7 @@ class ConditionPrediction:
             mol5_dim=len(encoders[4].categories_[0]),
             N_h1=hidden_size_1,
             N_h2=hidden_size_2,
-            l2v=0,
+            l2v=0.01, # TODO: check what coef they used
             mode=val_mode,
             dropout_prob=dropout,
             use_batchnorm=True,
