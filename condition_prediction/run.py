@@ -370,6 +370,8 @@ class ConditionPrediction:
         config.pop("test_df")
         config.pop("train_val_fp")
         config.pop("test_fp")
+
+
         
         # import correct model
         if model_type == "gao_model":
@@ -409,6 +411,7 @@ class ConditionPrediction:
             )
         )
 
+
         # Apply these to the fingerprints
         if train_val_fp is not None:
             assert train_val_fp.shape[0] == train_val_df.shape[0]
@@ -436,6 +439,9 @@ class ConditionPrediction:
             mol_5_col = "agent_002"
         molecule_columns = [mol_1_col, mol_2_col, mol_3_col, mol_4_col, mol_5_col]
 
+        # This basically just batches the data using tf.data.Dataset 
+        # This is to ensure that training isn't CPU bound
+        # It could be up to like 10x slower without this
         (
             train_dataset,
             val_dataset,
@@ -459,6 +465,9 @@ class ConditionPrediction:
             cache_val_data=cache_val_data,
             cache_test_data=cache_test_data,
         )
+
+        # Ensure that TF datasets are in correct shape, forces the data to be formatted correctly whether it's teacherforcing or not,
+        # Converts the data into X and y
         train_dataset = train_dataset.map(
             rearrange_data_teacher_force
             if train_mode == TEACHER_FORCE
@@ -489,6 +498,7 @@ class ConditionPrediction:
         del test_df
 
         LOG.info("Data ready for modelling")
+        LOG.info(train_dataset)
         ### Model Setup ###
         model = build_teacher_forcing_model(
             pfp_len=fp_size,
