@@ -45,6 +45,7 @@ class GenerateData:
     def map_idx_to_data(self, idx):
         idx = idx.numpy()
         if self.product_fp is None and self.rxn_diff_fp is None:
+            raise ValueError("Please pre-calc your fp")
             result = GenerateData._map_idx_to_data_gen_fp(
                 self.df,
                 idx,
@@ -220,7 +221,8 @@ def get_dataset(
     )
 
     n_items = df.shape[0] if df is not None else fp.shape[0]  # type: ignore
-    dataset = tf.data.Dataset.range(n_items)  # INdex generator
+    # initialise dataset (of indices) that we'll use to batch the data
+    dataset = tf.data.Dataset.range(n_items)  # Index generator
 
     # Need to shuffle here so it doesn't try to run the expensive stuff
     # while shuffling
@@ -231,6 +233,7 @@ def get_dataset(
     dataset = dataset.batch(batch_size)
 
     # Generate the actual data
+    # Slice the numpy data (ie the actual data/ fingerprints) using the slices defined by the tf dataset defined above
     dataset = dataset.map(
         map_func=lambda idx: tf.py_function(
             fp_generator.map_idx_to_data,
@@ -240,6 +243,7 @@ def get_dataset(
         # num_parallel_calls=os.cpu_count(), deterministic=False
     )
 
+    # Cache the data to make it faster
     if cache_data:
         cache_dir = Path(cache_dir)
         if not cache_dir.exists():
@@ -249,6 +253,7 @@ def get_dataset(
             [1 for _ in dataset.as_numpy_iterator()]
         dataset = dataset.cache(filename=str(cache_dir / "fps"))
 
+    # Idk let's just set interleave False
     if interleave:
         dataset = tf.data.Dataset.range(len(dataset)).interleave(
             lambda _: dataset,
