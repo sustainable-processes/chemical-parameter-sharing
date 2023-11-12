@@ -403,7 +403,6 @@ def update_teacher_forcing_model_weights(update_model, to_copy_model):
         "mol5",
     ]
     layers += [i.name for i in to_copy_model.layers if "batchnorm" in i.name]
-    breakpoint()
     for l in layers:
         update_model.get_layer(l).set_weights(to_copy_model.get_layer(l).get_weights())
 
