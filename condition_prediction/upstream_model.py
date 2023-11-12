@@ -32,48 +32,6 @@ def add_dropout_and_batchnorm(
         )(layer)
     return layer
 
-# class ParamSharingLayer(tf.keras.layers.Layer):
-
-#     def call(self, inputs):
-#         concat_fp, input_class, l2v = inputs
-#         l2v=0.01
-#         # Define layers for each class
-#         layer_0 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_0",)
-#         layer_1 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_1",)
-#         layer_2 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_2",)
-#         layer_3 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_3",)
-#         layer_4 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_4",)
-#         layer_5 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_5",)
-#         layer_6 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_6",)
-#         layer_7 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_7",)
-#         layer_8 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_8",)
-#         layer_9 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_9",)
-#         layer_10 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_10",)
-#         layer_11 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_11",)
-
-
-#         # Define parameter sharing layer
-#         param_sharing_layer = tf.keras.layers.Lambda(lambda x:
-#             tf.switch_case(
-#             x[0], # input_class is already an int, not OHE, so we just use it directly
-#             branch_fns={
-#                 0: lambda: layer_0(concat_fp), # There aren't actually any reactions of class 0, but we need to define it anyway
-#                 1: lambda: layer_1(concat_fp),
-#                 2: lambda: layer_2(concat_fp),
-#                 3: lambda: layer_3(concat_fp),
-#                 4: lambda: layer_4(concat_fp),
-#                 5: lambda: layer_5(concat_fp),
-#                 6: lambda: layer_6(concat_fp),
-#                 7: lambda: layer_7(concat_fp),
-#                 8: lambda: layer_8(concat_fp),
-#                 9: lambda: layer_9(concat_fp),
-#                 10: lambda: layer_10(concat_fp),
-#                 11: lambda: layer_11(concat_fp),
-#             }
-#         )
-#         )(input_class)
-
-#         return param_sharing_layer
 class ParamSharingLayer(tf.keras.layers.Layer):
     def __init__(self, units, l2v, **kwargs):
         super().__init__(**kwargs)
@@ -83,10 +41,23 @@ class ParamSharingLayer(tf.keras.layers.Layer):
 
     def call(self, inputs):
         concat_fp, input_class = inputs
-        # Select the correct layer based on the input class
-        output = tf.switch_case(branch_index=input_class,
-                                branch_fns={i: lambda: self.shared_layers[i](concat_fp) for i in range(12)})
-        return output
+        # Ensure input_class is a scalar for each example
+        input_class = tf.squeeze(input_class, axis=-1)
+
+        # Define a function to apply to each element
+        def apply_layer(args):
+            fp, cls = args
+            # Use tf.case to select the appropriate layer
+            output = tf.case([(tf.equal(cls, i), lambda: self.shared_layers[i](tf.expand_dims(fp, 0))) for i in range(12)], 
+                           exclusive=True)
+            return tf.squeeze(output, 0)
+
+        # Use tf.map_fn to apply the function to each element
+        outputs = tf.map_fn(apply_layer, (concat_fp, input_class), dtype=tf.float32)
+
+        return outputs
+
+
 
 
 
@@ -123,8 +94,8 @@ def build_teacher_forcing_model(
         input_mol5 = None
     else:
         raise NotImplementedError(f"unknown for {mode=}")
-
-    input_class = tf.keras.layers.Input(batch_shape=(1,), dtype='int32', name="input_class")
+    
+    input_class = tf.keras.layers.Input(shape=(1,), dtype='int32', name="input_class")
 
     concat_fp = tf.keras.layers.Concatenate(axis=1)([input_pfp, input_rxnfp])
     
@@ -139,6 +110,8 @@ def build_teacher_forcing_model(
     #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
     #     name="fp_transform1",
     # )(concat_fp)
+
+
     h1 = add_dropout_and_batchnorm(
         param_sharing_output,
         dropout_prob=dropout_prob,
@@ -398,6 +371,12 @@ def build_teacher_forcing_model(
 
     return model
 
+# Try updating weights without using the names
+# def update_teacher_forcing_model_weights(update_model, to_copy_model):
+#     for layer_to_copy, layer_to_update in zip(to_copy_model.layers, update_model.layers):
+#         weights = layer_to_copy.get_weights()
+#         layer_to_update.set_weights(weights)
+
 
 def update_teacher_forcing_model_weights(update_model, to_copy_model):
     layers = [
@@ -424,6 +403,7 @@ def update_teacher_forcing_model_weights(update_model, to_copy_model):
         "mol5",
     ]
     layers += [i.name for i in to_copy_model.layers if "batchnorm" in i.name]
+    breakpoint()
     for l in layers:
         update_model.get_layer(l).set_weights(to_copy_model.get_layer(l).get_weights())
 

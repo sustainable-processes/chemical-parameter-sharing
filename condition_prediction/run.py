@@ -365,12 +365,12 @@ class ConditionPrediction:
         Run condition prediction training
 
         """
-        config = locals()
+        config = locals().copy()
         config.pop("train_val_df")
         config.pop("test_df")
         config.pop("train_val_fp")
         config.pop("test_fp")
-
+        
 
         
         # import correct model
@@ -524,20 +524,41 @@ class ConditionPrediction:
             if train_mode == TEACHER_FORCE or train_mode == HARD_SELECTION
             else SOFT_SELECTION
         )
-        pred_model = build_teacher_forcing_model(
-            pfp_len=fp_size,
-            rxnfp_len=fp_size,
-            mol1_dim=len(encoders[0].categories_[0]),
-            mol2_dim=len(encoders[1].categories_[0]),
-            mol3_dim=len(encoders[2].categories_[0]),
-            mol4_dim=len(encoders[3].categories_[0]),
-            mol5_dim=len(encoders[4].categories_[0]),
-            N_h1=hidden_size_1,
-            N_h2=hidden_size_2,
-            l2v=0.01, # TODO: check what coef they used
-            mode=val_mode,
-            dropout_prob=dropout,
-            use_batchnorm=True,
+        if (train_mode == HARD_SELECTION) or (train_mode == SOFT_SELECTION):
+            pred_model = model
+            
+        else:
+            pred_model = build_teacher_forcing_model(
+                pfp_len=fp_size,
+                rxnfp_len=fp_size,
+                mol1_dim=len(encoders[0].categories_[0]),
+                mol2_dim=len(encoders[1].categories_[0]),
+                mol3_dim=len(encoders[2].categories_[0]),
+                mol4_dim=len(encoders[3].categories_[0]),
+                mol5_dim=len(encoders[4].categories_[0]),
+                N_h1=hidden_size_1,
+                N_h2=hidden_size_2,
+                l2v=0.01, # TODO: check what coef they used
+                mode=val_mode,
+                dropout_prob=dropout,
+                use_batchnorm=True,
+            )
+        pred_model.compile(
+            loss=[
+                tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+                for _ in range(5)
+            ],
+            loss_weights=[1, 1, 1, 1, 1],
+            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+            metrics={
+                f"mol{i}": [
+                    "acc",
+                    tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                    tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+                ]
+                for i in range(1, 6)
+            },
+            run_eagerly=eager_mode,
         )
 
         model.compile(
@@ -557,23 +578,7 @@ class ConditionPrediction:
             },
             run_eagerly=eager_mode,
         )
-        pred_model.compile(
-            loss=[
-                tf.keras.losses.CategoricalCrossentropy(from_logits=False)
-                for _ in range(5)
-            ],
-            loss_weights=[1, 1, 1, 1, 1],
-            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
-            metrics={
-                f"mol{i}": [
-                    "acc",
-                    tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
-                    tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
-                ]
-                for i in range(1, 6)
-            },
-            run_eagerly=eager_mode,
-        )
+        
 
         ### Training ###
         callbacks = [
@@ -650,9 +655,10 @@ class ConditionPrediction:
                 model.load_weights(best_checkpoint_filepath)
             else:
                 model.load_weights(last_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
 
         use_multiprocessing = True if workers > 0 else False
         h = None
@@ -673,9 +679,10 @@ class ConditionPrediction:
                 )
             finally:
                 model.save_weights(last_checkpoint_filepath)
-                update_teacher_forcing_model_weights(
-                    update_model=pred_model, to_copy_model=model
-                )
+                if train_mode == TEACHER_FORCE:
+                    update_teacher_forcing_model_weights(
+                        update_model=pred_model, to_copy_model=model
+                    )
 
         # Upload the best and last model
         if wandb_logging and not skip_training:
@@ -698,9 +705,10 @@ class ConditionPrediction:
         # Train and val metrics
         train_val_metrics_dict = {}
         model.load_weights(last_checkpoint_filepath)
-        update_teacher_forcing_model_weights(
-            update_model=pred_model, to_copy_model=model
-        )
+        if train_mode == TEACHER_FORCE:
+            update_teacher_forcing_model_weights(
+                update_model=pred_model, to_copy_model=model
+            )
         train_val_metrics_dict["trust_labelling"] = trust_labelling
         train_val_metrics_dict.update(
             {
@@ -712,9 +720,10 @@ class ConditionPrediction:
 
         # Load the best model back and do evaluation
         model.load_weights(best_checkpoint_filepath)
-        update_teacher_forcing_model_weights(
-            update_model=pred_model, to_copy_model=model
-        )
+        if train_mode == TEACHER_FORCE:
+            update_teacher_forcing_model_weights(
+                update_model=pred_model, to_copy_model=model
+            )
         train_val_metrics_dict.update(
             {
                 "val_best": ConditionPrediction.evaluate_model(
@@ -749,9 +758,10 @@ class ConditionPrediction:
             test_metrics_dict = dict(zip(model.metrics_names, test_metrics))
             test_metrics_dict["trust_labelling"] = trust_labelling
             model.load_weights(best_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
             test_metrics_dict.update(
                 {
                     "test_best": ConditionPrediction.evaluate_model(
@@ -760,9 +770,10 @@ class ConditionPrediction:
                 }
             )
             model.load_weights(last_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
             test_metrics_dict.update(
                 {
                     "test_last_epoch": ConditionPrediction.evaluate_model(

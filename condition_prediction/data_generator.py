@@ -44,7 +44,8 @@ class GenerateData:
     #     self.pool = multiprocessing.Pool(os.cpu_count(), initializer)
 
     def map_idx_to_data(self, idx):
-        idx = idx.numpy()
+        # idx = idx.numpy()
+        idx = tf.convert_to_tensor(idx.numpy(), dtype=tf.int32)
         if self.product_fp is None and self.rxn_diff_fp is None:
             raise ValueError("Please pre-calc your fp")
             result = GenerateData._map_idx_to_data_gen_fp(
@@ -91,6 +92,7 @@ class GenerateData:
         radius=3,
         fp_size=2048,
     ):
+        idx = idx.numpy()  # Convert TensorFlow tensor to NumPy array
         return (
             product_fp[idx],
             rxn_diff_fp[idx],
@@ -309,6 +311,7 @@ def get_datasets(
         train_mode: teacher force or hard/soft selection
 
     """
+
     # Get column names
     mol_1_col = molecule_columns[0]
     mol_2_col = molecule_columns[1]
@@ -379,6 +382,8 @@ def get_datasets(
     )
 
     # Get datsets
+    class_id = df.loc[:, ["super class"]].iloc[train_idx].astype(np.int32).values
+    # class_id = np.squeeze(class_id)
     train_dataset = get_dataset(
         train_mol1,
         train_mol2,
@@ -386,7 +391,7 @@ def get_datasets(
         train_mol4,
         train_mol5,
         df=df.iloc[train_idx],
-        class_id=df.loc[:, ["super class"]].iloc[train_idx].astype(np.int32).values,
+        class_id=class_id,
         fp=train_val_fp[train_idx] if train_val_fp is not None else None,
         # mode=train_mode,
         fp_size=fp_size,
@@ -398,6 +403,8 @@ def get_datasets(
         interleave=interleave,
         cache_dir=".tf_cache_train/",
     )
+    class_id = df.loc[:, ["super class"]].iloc[val_idx].astype(np.int32).values
+    # class_id = np.squeeze(class_id)
     val_dataset = get_dataset(
         val_mol1,
         val_mol2,
@@ -405,7 +412,7 @@ def get_datasets(
         val_mol4,
         val_mol5,
         df=df.iloc[val_idx],
-        class_id=df.loc[:, ["super class"]].iloc[val_idx].astype(np.int32).values,
+        class_id=class_id,
         fp=train_val_fp[val_idx] if train_val_fp is not None else None,
         # mode=val_mode,
         fp_size=fp_size,
@@ -418,6 +425,8 @@ def get_datasets(
         cache_dir=".tf_cache_val/",
     )
     if include_test:
+        class_id = df.loc[:, ["super class"]].iloc[test_idx].astype(np.int32).values
+        # class_id = np.squeeze(class_id)
         test_dataset = get_dataset(
             test_mol1,
             test_mol2,
@@ -425,7 +434,7 @@ def get_datasets(
             test_mol4,
             test_mol5,
             df=df.iloc[test_idx],
-            class_id=df.loc[:, ["super class"]].iloc[test_idx].astype(np.int32).values,
+            class_id=class_id,
             fp=test_fp,
             # mode=mode,
             fp_size=fp_size,
