@@ -17,8 +17,8 @@ from rdkit.rdBase import BlockLogs
 # from pqdm.processes import pqdm
 from tqdm import tqdm
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
-from condition_prediction.utils import apply_train_ohe_fit
+from ps_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from ps_model.utils import apply_train_ohe_fit
 
 LOG = logging.getLogger(__name__)
 

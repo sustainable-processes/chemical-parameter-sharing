@@ -19,8 +19,8 @@ import wandb
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
-from condition_prediction.data_generator import (
+from ps_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from ps_model.data_generator import (
     get_datasets,
     rearrange_data,
     rearrange_data_teacher_force,
@@ -31,7 +31,7 @@ from condition_prediction.data_generator import (
 #     update_teacher_forcing_model_weights,
 # )
 
-from condition_prediction.utils import (
+from ps_model.utils import (
     TrainingMetrics,
     download_model_from_wandb,
     frequency_informed_accuracy,
@@ -375,12 +375,12 @@ class ConditionPrediction:
         
         # import correct model
         if model_type == "gao_model":
-            from condition_prediction.gao_model import (
+            from ps_model.gao_model import (
             build_teacher_forcing_model,
             update_teacher_forcing_model_weights,
             )
         elif model_type == "upstream_model":
-            from condition_prediction.upstream_model import (
+            from ps_model.upstream_model import (
                 build_teacher_forcing_model,
                 update_teacher_forcing_model_weights,
             )
