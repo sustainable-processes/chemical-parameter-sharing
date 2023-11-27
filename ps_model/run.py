@@ -72,6 +72,7 @@ class ConditionPrediction:
     generate_fingerprints: bool
     fp_size: int
     dropout: float
+    param_sharing_size: int
     hidden_size_1: int
     hidden_size_2: int
     lr: float
@@ -143,6 +144,7 @@ class ConditionPrediction:
             skip_training=self.skip_training,
             fp_size=self.fp_size,
             dropout=self.dropout,
+            param_sharing_size=self.param_sharing_size,
             hidden_size_1=self.hidden_size_1,
             hidden_size_2=self.hidden_size_2,
             lr=self.lr,
@@ -336,6 +338,7 @@ class ConditionPrediction:
         batch_size: int = 512,
         fp_size: int = 2048,
         dropout: float = 0.2,
+        param_sharing_size: int = 1000,
         hidden_size_1: int = 1024,
         hidden_size_2: int = 100,
         lr: float = 0.01,
@@ -510,6 +513,7 @@ class ConditionPrediction:
             mol3_dim=len(encoders[2].categories_[0]),
             mol4_dim=len(encoders[3].categories_[0]),
             mol5_dim=len(encoders[4].categories_[0]),
+            N_ps=param_sharing_size,
             N_h1=hidden_size_1,
             N_h2=hidden_size_2,
             l2v=0.01,  # TODO check what coef they used
@@ -536,6 +540,7 @@ class ConditionPrediction:
                 mol3_dim=len(encoders[2].categories_[0]),
                 mol4_dim=len(encoders[3].categories_[0]),
                 mol5_dim=len(encoders[4].categories_[0]),
+                N_ps=param_sharing_size,
                 N_h1=hidden_size_1,
                 N_h2=hidden_size_2,
                 l2v=0.01, # TODO: check what coef they used
@@ -902,6 +907,12 @@ class ConditionPrediction:
     help="The dropout rate used in the model",
 )
 @click.option(
+    "--param_sharing_size",
+    default=1000,
+    type=int,
+    help="The size (width) of the parameter sharing layer in the model",
+)
+@click.option(
     "--hidden_size_1",
     default=1024,
     type=int,
@@ -1043,6 +1054,7 @@ def main_click(
     workers: int,
     fp_size: int,
     dropout: float,
+    param_sharing_size: int,
     hidden_size_1: int,
     hidden_size_2: int,
     lr: float,
@@ -1100,6 +1112,7 @@ def main_click(
         workers=workers,
         fp_size=fp_size,
         dropout=dropout,
+        param_sharing_size=param_sharing_size,
         hidden_size_1=hidden_size_1,
         hidden_size_2=hidden_size_2,
         lr=lr,
@@ -1141,6 +1154,7 @@ def main(
     workers: int,
     fp_size: int,
     dropout: float,
+    param_sharing_size: int,
     hidden_size_1: int,
     hidden_size_2: int,
     lr: float,
@@ -1244,6 +1258,7 @@ def main(
         generate_fingerprints=generate_fingerprints,
         fp_size=fp_size,
         dropout=dropout,
+        param_sharing_size=param_sharing_size,
         hidden_size_1=hidden_size_1,
         hidden_size_2=hidden_size_2,
         lr=lr,

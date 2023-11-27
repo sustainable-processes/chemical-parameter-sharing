@@ -69,6 +69,7 @@ def build_teacher_forcing_model(
     mol3_dim=100,
     mol4_dim=100,
     mol5_dim=100,
+    N_ps=1000,
     N_h1=1024,
     N_h2=100,
     l2v=0,
@@ -102,7 +103,7 @@ def build_teacher_forcing_model(
     # add parameter sharing here, one route per class
     # It's upstream parameter sharing, so they get merged after only 1-2 layers (can try both!)
     
-    param_sharing_output = ParamSharingLayer(units=1000, l2v=l2v)([concat_fp, input_class])
+    param_sharing_output = ParamSharingLayer(units=N_ps, l2v=l2v)([concat_fp, input_class])
 
     # h1 = tf.keras.layers.Dense(
     #     1000,
