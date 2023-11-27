@@ -21,25 +21,31 @@ WANDB_ENTITY=ceb-sre
 # 1. Generate fingerprints for each dataset
 ## Super class
 fp_mid_class_train:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/mid_class_train.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/mid_class_train.parquet" --fp_size=2048 --overwrite=False
 fp_mid_class_test:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/mid_class_test.parquet" --fp_size=2048 --overwrite=False
 fp_super_cc_class_train:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_cc_train.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_cc_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_cc_class_test:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_cc_test.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_cc_test.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_fgi_train:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_fgi_train.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_fgi_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_fgi_test:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_fgi_test.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_fgi_test.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_reductions_train:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_reductions_train.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_reductions_train.parquet" --fp_size=2048 --overwrite=False
 fp_super_class_reductions_test:
-	python -m gao_model.gen_fp --clean_data_folder_path="data/super_class_reductions_test.parquet" --fp_size=2048 --overwrite=False
+	python -m ps_model.gen_fp --clean_data_folder_path="data/super_class_reductions_test.parquet" --fp_size=2048 --overwrite=False
+fp_random_train:
+	python -m ps_model.gen_fp --clean_data_folder_path="data/random_train.parquet" --fp_size=2048 --overwrite=False
+fp_random_test:
+	python -m ps_model.gen_fp --clean_data_folder_path="data/random_test.parquet" --fp_size=2048 --overwrite=False
 
 gen_fp_1: fp_mid_class_train fp_mid_class_test fp_super_cc_class_train fp_super_cc_class_test
 
 gen_fp_2: fp_super_class_fgi_train fp_super_class_fgi_test fp_super_class_reductions_train fp_super_class_reductions_test
+
+gen_fp_random: fp_random_train fp_random_test
 
 # 2. Train & evaluate a model on each dataset
 super_class_training_cc:
@@ -52,9 +58,37 @@ super_class_reductions_training:
 	python -m gao_model --model_type="gao_model" --train_data_path="data/super_class_reductions_train.parquet" --test_data_path="data/super_class_reductions_test.parquet" --output_folder_path="models/super_class_reductions"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 	
 mid_class_training:
-	python -m gao_model --model_type="gao_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=0.01 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m gao_model --model_type="gao_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
+# Generic model training
 upstream_model_training:
-	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream"  --train_fraction=0.01 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
+# Training fraction
+upstream_20:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_20"  --train_fraction=0.2 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
+upstream_40:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_40"  --train_fraction=0.4 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+
+upstream_60:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_60"  --train_fraction=0.6 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+
+upstream_80:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_80"  --train_fraction=0.8 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+
+# 3. Size of parameter sharing layer
+
+upstream_05k:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_05k"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY) --param_sharing_size=500
+
+upstream_2k:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_2k"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY) --param_sharing_size=2000
+
+upstream_4k:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_4k"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY) --param_sharing_size=4000
+
+upstream_8k:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_8k"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY) --param_sharing_size=8000
+
+upstream_ps_size: upstream_05k upstream_2k upstream_4k upstream_8k
