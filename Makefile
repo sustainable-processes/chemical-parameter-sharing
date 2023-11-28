@@ -47,7 +47,24 @@ gen_fp_2: fp_super_class_fgi_train fp_super_class_fgi_test fp_super_class_reduct
 
 gen_fp_random: fp_random_train fp_random_test
 
-# 2. Train & evaluate a model on each dataset
+# 2. Evaluate models on random split of dataset
+
+gao_random_split:
+	python -m gao_model --model_type="gao_model" --train_data_path="data/random_train.parquet" --test_data_path="data/random_test.parquet" --output_folder_path="models/gao_random_split"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY)
+
+gao_random_split_OHE:
+	python -m gao_model --model_type="gao_model" --train_data_path="data/random_test_fp_ohe.parquet" --test_data_path="data/random_test_fp_ohe.parquet" --output_folder_path="models/gao_ohe_random_split"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY)
+
+ps_random_split:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/random_train.parquet" --test_data_path="data/random_test.parquet" --output_folder_path="models/ps_random_split"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY)
+
+
+initial_random_split: gao_random_split ps_random_split
+
+
+
+
+# 2.b Train & evaluate a model on each dataset
 super_class_training_cc:
 	python -m gao_model --model_type="gao_model" --train_data_path="data/super_class_cc_train.parquet" --test_data_path="data/super_class_cc_test.parquet" --output_folder_path="models/super_class_cc"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 
@@ -92,3 +109,5 @@ upstream_8k:
 	python -m ps_model --model_type="upstream_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/upstream_8k"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY) --param_sharing_size=8000
 
 upstream_ps_size: upstream_05k upstream_2k upstream_4k upstream_8k
+
+
