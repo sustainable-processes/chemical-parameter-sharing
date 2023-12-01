@@ -387,6 +387,11 @@ class ConditionPrediction:
                 build_teacher_forcing_model,
                 update_teacher_forcing_model_weights,
             )
+        elif model_type == "multi_ps_model":
+            from ps_model.multi_ps_model import (
+                build_teacher_forcing_model,
+                update_teacher_forcing_model_weights,
+            )
         else:
             raise ValueError(f"Model type {model_type} not recognised. Please use either [gao_model, upstream_model]")
         

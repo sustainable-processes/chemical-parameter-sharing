@@ -75,7 +75,7 @@ super_class_reductions_training:
 	python -m gao_model --model_type="gao_model" --train_data_path="data/super_class_reductions_train.parquet" --test_data_path="data/super_class_reductions_test.parquet" --output_folder_path="models/super_class_reductions"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
 	
 mid_class_training:
-	python -m gao_model --model_type="gao_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/mid_class"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=100 --wandb_entity=$(WANDB_ENTITY)
+	python -m gao_model --model_type="gao_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/gao_mid_attempt2"  --train_fraction=1 --train_val_split=0.8 --overwrite=True --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY)
 
 # Generic model training
 upstream_model_training:
@@ -110,4 +110,7 @@ upstream_8k:
 
 upstream_ps_size: upstream_05k upstream_2k upstream_4k upstream_8k
 
+# 4. Multi-ps-model
+multi_ps_training:
+	python -m ps_model --model_type="multi_ps_model" --train_data_path="data/mid_class_train.parquet" --test_data_path="data/mid_class_test.parquet" --output_folder_path="models/multi_ps"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=100 --evaluate_on_test_data=True --early_stopping_patience=10 --wandb_entity=$(WANDB_ENTITY)
 
