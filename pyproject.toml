@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "condition_prediction"
+name = "ps_model"
 version = "1.0.0"
 description = ""
 authors = [
@@ -8,9 +8,10 @@ authors = [
     "Daniel Wigh <dswigh@gmail.com>",
 ]
 
+# NB installing tensorflow with poetry won't work on my mac studio with an M1 chip for some reason, so have to remove it from the toml file and install it separately
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
-tensorflow = { version = "^2.12.0"}
+#tensorflow = { version = "^2.12.0"}
 #tensorflow-macos = { version = "^2.12.0", platform = "darwin" }/
 matplotlib = "^3.7.1"
 tqdm = "^4.65.0"

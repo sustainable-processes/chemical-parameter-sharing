@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from ps_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
 
 
 def hard_selection(pred):
@@ -32,6 +32,33 @@ def add_dropout_and_batchnorm(
         )(layer)
     return layer
 
+class ParamSharingLayer(tf.keras.layers.Layer):
+    def __init__(self, units, l2v, **kwargs):
+        super().__init__(**kwargs)
+        self.units = units
+        self.l2v = l2v
+        self.shared_layers = [tf.keras.layers.Dense(units, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name=f"layer_{i}") for i in range(12)]
+
+    def call(self, inputs):
+        concat_fp, input_class = inputs
+        # Ensure input_class is a scalar for each example
+        input_class = tf.squeeze(input_class, axis=-1)
+
+        # Define a function to apply to each element
+        def apply_layer(args):
+            fp, cls = args
+            # Use tf.case to select the appropriate layer
+            output = tf.case([(tf.equal(cls, i), lambda: self.shared_layers[i](tf.expand_dims(fp, 0))) for i in range(12)], 
+                           exclusive=True)
+            return tf.squeeze(output, 0)
+
+        # Use tf.map_fn to apply the function to each element
+        outputs = tf.map_fn(apply_layer, (concat_fp, input_class), dtype=tf.float32)
+
+        return outputs
+
+
+
 
 def build_teacher_forcing_model(
     pfp_len=2048,
@@ -41,6 +68,7 @@ def build_teacher_forcing_model(
     mol3_dim=100,
     mol4_dim=100,
     mol5_dim=100,
+    N_ps=1000,
     N_h1=1024,
     N_h2=100,
     l2v=0,
@@ -51,7 +79,6 @@ def build_teacher_forcing_model(
 ) -> tf.keras.models.Model:
     input_pfp = tf.keras.layers.Input(shape=(pfp_len,), name="input_pfp")
     input_rxnfp = tf.keras.layers.Input(shape=(rxnfp_len,), name="input_rxnfp")
-    input_class = tf.keras.layers.Input(shape=(11,), name="input_class")
 
     if mode == TEACHER_FORCE:
         input_mol1 = tf.keras.layers.Input(shape=(mol1_dim,), name="input_mol1")
@@ -67,43 +94,15 @@ def build_teacher_forcing_model(
         input_mol5 = None
     else:
         raise NotImplementedError(f"unknown for {mode=}")
+    
+    input_class = tf.keras.layers.Input(shape=(1,), dtype='int32', name="input_class")
 
     concat_fp = tf.keras.layers.Concatenate(axis=1)([input_pfp, input_rxnfp])
     
     # add parameter sharing here, one route per class
     # It's upstream parameter sharing, so they get merged after only 1-2 layers (can try both!)
     
-    # Define layers for each class
-    layer_1 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_1",)
-    layer_2 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_2",)
-    layer_3 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_3",)
-    layer_4 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_4",)
-    layer_5 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_5",)
-    layer_6 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_6",)
-    layer_7 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_7",)
-    layer_8 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_8",)
-    layer_9 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_9",)
-    layer_10 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_10",)
-    layer_11 = tf.keras.layers.Dense(1000, activation="relu", kernel_regularizer=tf.keras.regularizers.l2(l2v), name="layer_11",)
-
-    # Define parameter sharing layer
-    param_sharing_layer = tf.switch_case(
-        tf.argmax(input_class, axis=-1),
-        branch_fns={
-            1: lambda: layer_1(concat_fp),
-            2: lambda: layer_2(concat_fp),
-            3: lambda: layer_3(concat_fp),
-            4: lambda: layer_4(concat_fp),
-            5: lambda: layer_5(concat_fp),
-            6: lambda: layer_6(concat_fp),
-            7: lambda: layer_7(concat_fp),
-            8: lambda: layer_8(concat_fp),
-            9: lambda: layer_9(concat_fp),
-            10: lambda: layer_10(concat_fp),
-            11: lambda: layer_11(concat_fp),
-        }
-    )
-
+    param_sharing_output1 = ParamSharingLayer(units=N_ps, l2v=l2v)([concat_fp, input_class])
 
     # h1 = tf.keras.layers.Dense(
     #     1000,
@@ -111,40 +110,45 @@ def build_teacher_forcing_model(
     #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
     #     name="fp_transform1",
     # )(concat_fp)
-    h1 = add_dropout_and_batchnorm(
-        param_sharing_layer,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+
+
+    # h1 = add_dropout_and_batchnorm(
+    #     param_sharing_output1,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
     h2 = tf.keras.layers.Dense(
         1000,
         activation="relu",
         kernel_regularizer=tf.keras.regularizers.l2(l2v),
         name="fp_transform",
-    )(h1)
+    )(param_sharing_output1)
     h2 = add_dropout_and_batchnorm(
         h2, dropout_prob=0.5, use_batchnorm=use_batchnorm, force_stochastic=True
     )
 
-    mol1_h1 = tf.keras.layers.Dense(
-        N_h1,
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(l2v),
-        name="mol1_h1",
-    )(h2)
-    mol1_h1 = add_dropout_and_batchnorm(
-        mol1_h1,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=True,
-    )
+    # mol1_h1 = tf.keras.layers.Dense(
+    #     N_h1,
+    #     activation="relu",
+    #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
+    #     name="mol1_h1",
+    # )(h2)
+    
+    param_sharing_output2 = ParamSharingLayer(units=N_ps, l2v=l2v)([h2, input_class])
+    
+    # mol1_h1 = add_dropout_and_batchnorm(
+    #     param_sharing_output2,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=True,
+    # )
     mol1_h2 = tf.keras.layers.Dense(
         N_h1,
         activation="tanh",
         kernel_regularizer=tf.keras.regularizers.l2(l2v),
         name="mol1_h2",
-    )(mol1_h1)
+    )(param_sharing_output2)
     mol1_h2 = add_dropout_and_batchnorm(
         mol1_h2,
         dropout_prob=dropout_prob,
@@ -160,12 +164,12 @@ def build_teacher_forcing_model(
     mol1_dense = tf.keras.layers.Dense(N_h2, activation="relu", name="mol1_dense")(
         input_mol1
     )
-    mol1_dense = add_dropout_and_batchnorm(
-        mol1_dense,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+    # mol1_dense = add_dropout_and_batchnorm(
+    #     mol1_dense,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
 
     concat_fp_mol1 = tf.keras.layers.Concatenate(axis=-1, name="concat_fp_mol1")(
         [h2, mol1_dense]
@@ -183,21 +187,24 @@ def build_teacher_forcing_model(
         use_batchnorm=use_batchnorm,
         force_stochastic=False,
     )
-    mol2_h2 = tf.keras.layers.Dense(
-        N_h1,
-        activation="tanh",
-        kernel_regularizer=tf.keras.regularizers.l2(l2v),
-        name="mol2_h2",
-    )(mol2_h1)
-    mol2_h2 = add_dropout_and_batchnorm(
-        mol2_h2,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+    # mol2_h2 = tf.keras.layers.Dense(
+    #     N_h1,
+    #     activation="tanh",
+    #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
+    #     name="mol2_h2",
+    # )(mol2_h1)
+    
+    param_sharing_output3 = ParamSharingLayer(units=N_ps, l2v=l2v)([mol2_h1, input_class])
+    
+    # mol2_h2 = add_dropout_and_batchnorm(
+    #     param_sharing_output3,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
 
     mol2_output = tf.keras.layers.Dense(mol2_dim, activation="softmax", name="mol2")(
-        mol2_h2
+        param_sharing_output3
     )
     input_mol2 = do_selection(prev_output=mol2_output, true_input=input_mol2, mode=mode)
 
@@ -214,24 +221,27 @@ def build_teacher_forcing_model(
         axis=-1, name="concat_fp_mol1_mol2"
     )([h2, mol1_dense, mol2_dense])
 
-    mol3_h1 = tf.keras.layers.Dense(
-        N_h1,
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(l2v),
-        name="mol3_h1",
-    )(concat_fp_mol1_mol2)
-    mol3_h1 = add_dropout_and_batchnorm(
-        mol3_h1,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+    # mol3_h1 = tf.keras.layers.Dense(
+    #     N_h1,
+    #     activation="relu",
+    #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
+    #     name="mol3_h1",
+    # )(concat_fp_mol1_mol2)
+    # mol3_h1 = add_dropout_and_batchnorm(
+    #     mol3_h1,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
+    
+    param_sharing_output4 = ParamSharingLayer(units=N_ps, l2v=l2v)([concat_fp_mol1_mol2, input_class])
+    
     mol3_h2 = tf.keras.layers.Dense(
         N_h1,
         activation="tanh",
         kernel_regularizer=tf.keras.regularizers.l2(l2v),
         name="mol3_h2",
-    )(mol3_h1)
+    )(param_sharing_output4)
     mol3_h2 = add_dropout_and_batchnorm(
         mol3_h2,
         dropout_prob=dropout_prob,
@@ -258,24 +268,27 @@ def build_teacher_forcing_model(
         axis=-1, name="concat_fp_mol1_mol2_mol3"
     )([h2, mol1_dense, mol2_dense, mol3_dense])
 
-    mol4_h1 = tf.keras.layers.Dense(
-        N_h1,
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(l2v),
-        name="mol4_h1",
-    )(concat_fp_mol1_mol2_mol3)
-    mol4_h1 = add_dropout_and_batchnorm(
-        mol4_h1,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+    # mol4_h1 = tf.keras.layers.Dense(
+    #     N_h1,
+    #     activation="relu",
+    #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
+    #     name="mol4_h1",
+    # )(concat_fp_mol1_mol2_mol3)
+    # mol4_h1 = add_dropout_and_batchnorm(
+    #     mol4_h1,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
+    
+    param_sharing_output5 = ParamSharingLayer(units=N_ps, l2v=l2v)([concat_fp_mol1_mol2_mol3, input_class])
+    
     mol4_h2 = tf.keras.layers.Dense(
         N_h1,
         activation="tanh",
         kernel_regularizer=tf.keras.regularizers.l2(l2v),
         name="mol4_h2",
-    )(mol4_h1)
+    )(param_sharing_output5)
     mol4_h2 = add_dropout_and_batchnorm(
         mol4_h2,
         dropout_prob=dropout_prob,
@@ -302,24 +315,25 @@ def build_teacher_forcing_model(
         axis=-1, name="concat_fp_mol1_mol2_mol3_mol4"
     )([h2, mol1_dense, mol2_dense, mol3_dense, mol4_dense])
 
-    mol5_h1 = tf.keras.layers.Dense(
-        N_h1,
-        activation="relu",
-        kernel_regularizer=tf.keras.regularizers.l2(l2v),
-        name="mol5_h1",
-    )(concat_fp_mol1_mol2_mol3_mol4)
-    mol5_h1 = add_dropout_and_batchnorm(
-        mol5_h1,
-        dropout_prob=dropout_prob,
-        use_batchnorm=use_batchnorm,
-        force_stochastic=False,
-    )
+    # mol5_h1 = tf.keras.layers.Dense(
+    #     N_h1,
+    #     activation="relu",
+    #     kernel_regularizer=tf.keras.regularizers.l2(l2v),
+    #     name="mol5_h1",
+    # )(concat_fp_mol1_mol2_mol3_mol4)
+    # mol5_h1 = add_dropout_and_batchnorm(
+    #     mol5_h1,
+    #     dropout_prob=dropout_prob,
+    #     use_batchnorm=use_batchnorm,
+    #     force_stochastic=False,
+    # )
+    param_sharing_output6 = ParamSharingLayer(units=N_ps, l2v=l2v)([concat_fp_mol1_mol2_mol3_mol4, input_class])
     mol5_h2 = tf.keras.layers.Dense(
         N_h1,
         activation="tanh",
         kernel_regularizer=tf.keras.regularizers.l2(l2v),
         name="mol5_h2",
-    )(mol5_h1)
+    )(param_sharing_output6)
     mol5_h2 = add_dropout_and_batchnorm(
         mol5_h2,
         dropout_prob=dropout_prob,
@@ -354,6 +368,7 @@ def build_teacher_forcing_model(
             [
                 input_pfp,
                 input_rxnfp,
+                input_class,
                 input_mol1,
                 input_mol2,
                 input_mol3,
@@ -363,27 +378,22 @@ def build_teacher_forcing_model(
             output,
         )
     elif mode == HARD_SELECTION or mode == SOFT_SELECTION:
-        model = tf.keras.models.Model([input_pfp, input_rxnfp], output)
+        model = tf.keras.models.Model([input_pfp, input_rxnfp, input_class], output)
     else:
         raise NotImplementedError(f"unknown for {mode=}")
 
     return model
 
+# Try updating weights without using the names
+# def update_teacher_forcing_model_weights(update_model, to_copy_model):
+#     for layer_to_copy, layer_to_update in zip(to_copy_model.layers, update_model.layers):
+#         weights = layer_to_copy.get_weights()
+#         layer_to_update.set_weights(weights)
+
 
 def update_teacher_forcing_model_weights(update_model, to_copy_model):
     layers = [
-        "layer_0",
-        "layer_1",
-        "layer_2",
-        "layer_3",
-        "layer_4",
-        "layer_5",
-        "layer_6",
-        "layer_7",
-        "layer_8",
-        "layer_9",
-        "layer_10",
-        "layer_11",
+        # "param_sharing_layer",
         "fp_transform",
         "mol1_dense",
         "mol2_dense",
@@ -406,6 +416,6 @@ def update_teacher_forcing_model_weights(update_model, to_copy_model):
         "mol5",
     ]
     layers += [i.name for i in to_copy_model.layers if "batchnorm" in i.name]
-
     for l in layers:
         update_model.get_layer(l).set_weights(to_copy_model.get_layer(l).get_weights())
+
