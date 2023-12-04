@@ -19,18 +19,19 @@ import wandb
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
-from condition_prediction.data_generator import (
+from gao_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from gao_model.data_generator import (
     get_datasets,
     rearrange_data,
     rearrange_data_teacher_force,
     unbatch_dataset,
 )
-from condition_prediction.model import (
-    build_teacher_forcing_model,
-    update_teacher_forcing_model_weights,
-)
-from condition_prediction.utils import (
+# from condition_prediction.gao_model import (
+#     build_teacher_forcing_model,
+#     update_teacher_forcing_model_weights,
+# )
+
+from gao_model.utils import (
     TrainingMetrics,
     download_model_from_wandb,
     frequency_informed_accuracy,
@@ -58,7 +59,7 @@ class ConditionPrediction:
     1.2) Targets: OHE
 
     """
-
+    model_type: str
     train_data_path: pathlib.Path
     test_data_path: pathlib.Path
     train_fp_path: pathlib.Path
@@ -128,6 +129,7 @@ class ConditionPrediction:
                 test_df.drop(columns=[col], inplace=True)
 
         self.run_model(
+            model_type=self.model_type,
             train_val_df=train_df,
             test_df=test_df,
             train_val_fp=train_fp,
@@ -318,6 +320,7 @@ class ConditionPrediction:
 
     @staticmethod
     def run_model(
+        model_type: str,
         train_val_df: pd.DataFrame,
         test_df: pd.DataFrame,
         output_folder_path,
@@ -367,7 +370,21 @@ class ConditionPrediction:
         config.pop("test_df")
         config.pop("train_val_fp")
         config.pop("test_fp")
-
+        
+        # import correct model
+        if model_type == "gao_model":
+            from gao_model.gao_model import (
+            build_teacher_forcing_model,
+            update_teacher_forcing_model_weights,
+            )
+        elif model_type == "upstream_model":
+            from gao_model.upstream_model import (
+                build_teacher_forcing_model,
+                update_teacher_forcing_model_weights,
+            )
+        else:
+            raise ValueError(f"Model type {model_type} not recognised. Please use either [gao_model, upstream_model]")
+        
         ### Data setup ###
         assert train_val_df.shape[1] == test_df.shape[1]
 
@@ -763,6 +780,13 @@ class ConditionPrediction:
 
 @click.command()
 @click.option(
+    "--model_type",
+    type=str,
+    default="gao_model",
+    show_default=True,
+    help="Condition prediction model to use. Must be one of [gao_model, upstream_model]",
+)
+@click.option(
     "--train_data_path",
     type=str,
     default="/data/orderly/datasets/orderly_no_trust_with_map_train.parquet",
@@ -904,7 +928,7 @@ class ConditionPrediction:
 )
 @click.option(
     "--wandb_project",
-    default="orderly",
+    default="param-sharing",
     type=str,
     help="The project to use for logging to wandb",
 )
@@ -980,6 +1004,7 @@ class ConditionPrediction:
     help="path for the log file for model",
 )
 def main_click(
+    model_type: str,
     train_data_path: pathlib.Path,
     test_data_path: pathlib.Path,
     output_folder_path: pathlib.Path,
@@ -1036,6 +1061,7 @@ def main_click(
     """
     wandb_tags = wandb_tag
     main(
+        model_type=model_type,
         train_data_path=train_data_path,
         test_data_path=test_data_path,
         output_folder_path=output_folder_path,
@@ -1076,6 +1102,7 @@ def main_click(
 
 
 def main(
+    model_type: str,
     train_data_path: pathlib.Path,
     test_data_path: pathlib.Path,
     output_folder_path: pathlib.Path,
@@ -1135,7 +1162,7 @@ def main(
     test_data_path = pathlib.Path(test_data_path)
     output_folder_path = pathlib.Path(output_folder_path)
 
-    log_file = pathlib.Path(output_folder_path) / f"model.log"
+    log_file = pathlib.Path(output_folder_path) / f"{model_type}.log"
     if log_file != "default_path_model.log":
         log_file = pathlib.Path(log_file)
 
@@ -1181,6 +1208,7 @@ def main(
     LOG.info(f"Beginning model training, saving to {output_folder_path}")
 
     instance = ConditionPrediction(
+        model_type=model_type,
         train_data_path=train_data_path,
         test_data_path=test_data_path,
         train_fp_path=train_fp_path,

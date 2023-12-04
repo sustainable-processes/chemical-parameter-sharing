@@ -17,8 +17,8 @@ from rdkit.rdBase import BlockLogs
 # from pqdm.processes import pqdm
 from tqdm import tqdm
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
-from condition_prediction.utils import apply_train_ohe_fit
+from ps_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from ps_model.utils import apply_train_ohe_fit
 
 LOG = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class GenerateData:
     fp_size: int
     radius: int = 3
     df: pd.DataFrame
+    class_id: NDArray[np.int32]
     product_fp: Optional[NDArray[np.int64]] = None
     rxn_diff_fp: Optional[NDArray[np.int64]] = None
     mol1: NDArray[np.float32]
@@ -43,8 +44,10 @@ class GenerateData:
     #     self.pool = multiprocessing.Pool(os.cpu_count(), initializer)
 
     def map_idx_to_data(self, idx):
-        idx = idx.numpy()
+        # idx = idx.numpy()
+        idx = tf.convert_to_tensor(idx.numpy(), dtype=tf.int32)
         if self.product_fp is None and self.rxn_diff_fp is None:
+            raise ValueError("Please pre-calc your fp")
             result = GenerateData._map_idx_to_data_gen_fp(
                 self.df,
                 idx,
@@ -69,6 +72,7 @@ class GenerateData:
                 self.mol5,
                 self.product_fp,
                 self.rxn_diff_fp,
+                self.class_id,
                 self.radius,
                 self.fp_size,
             )
@@ -84,12 +88,15 @@ class GenerateData:
         mol5,
         product_fp,
         rxn_diff_fp,
+        class_id,
         radius=3,
         fp_size=2048,
     ):
+        idx = idx.numpy()  # Convert TensorFlow tensor to NumPy array
         return (
             product_fp[idx],
             rxn_diff_fp[idx],
+            class_id[idx],
             mol1[idx],
             mol2[idx],
             mol3[idx],
@@ -97,31 +104,33 @@ class GenerateData:
             mol5[idx],
         )
 
-    @staticmethod
-    def _map_idx_to_data_gen_fp(
-        df,
-        idx,
-        mol1,
-        mol2,
-        mol3,
-        mol4,
-        mol5,
-        radius=3,
-        fp_size=2048,
-    ):
-        product_fp, rxn_diff_fp = GenerateData.get_fp(
-            df.iloc[idx], radius=radius, fp_size=fp_size
-        )
+    # TODO: Gen FP on the fly? Prob not worth it
+    # @staticmethod
+    # def _map_idx_to_data_gen_fp(
+    #     df,
+    #     idx,
+    #     mol1,
+    #     mol2,
+    #     mol3,
+    #     mol4,
+    #     mol5,
+    #     radius=3,
+    #     fp_size=2048,
+    # ):
+    #     product_fp, rxn_diff_fp = GenerateData.get_fp(
+    #         df.iloc[idx], radius=radius, fp_size=fp_size
+    #     )
 
-        return (
-            product_fp,
-            rxn_diff_fp,
-            mol1[idx],
-            mol2[idx],
-            mol3[idx],
-            mol4[idx],
-            mol5[idx],
-        )
+    #     return (
+    #         product_fp,
+    #         rxn_diff_fp,
+    #         class_id[idx],
+    #         mol1[idx],
+    #         mol2[idx],
+    #         mol3[idx],
+    #         mol4[idx],
+    #         mol5[idx],
+    #     )
 
     @staticmethod
     def get_fp(df: pd.DataFrame, radius: int, fp_size: int):
@@ -165,6 +174,7 @@ def get_dataset(
     mol4: NDArray[np.float32],
     mol5: NDArray[np.float32],
     df: Optional[pd.DataFrame] = None,
+    class_id: Optional[NDArray[np.int32]] = None,
     fp: Optional[NDArray[np.int64]] = None,
     # mode: int = TEACHER_FORCE,
     fp_size: int = 2048,
@@ -210,6 +220,7 @@ def get_dataset(
     fp_generator = GenerateData(
         fp_size=fp_size,
         df=df,
+        class_id=class_id,
         product_fp=product_fp,
         rxn_diff_fp=rxn_diff_fp,
         mol1=mol1,
@@ -220,7 +231,8 @@ def get_dataset(
     )
 
     n_items = df.shape[0] if df is not None else fp.shape[0]  # type: ignore
-    dataset = tf.data.Dataset.range(n_items)  # INdex generator
+    # initialise dataset (of indices) that we'll use to batch the data
+    dataset = tf.data.Dataset.range(n_items)  # Index generator
 
     # Need to shuffle here so it doesn't try to run the expensive stuff
     # while shuffling
@@ -231,15 +243,17 @@ def get_dataset(
     dataset = dataset.batch(batch_size)
 
     # Generate the actual data
+    # Slice the numpy data (ie the actual data/ fingerprints) using the slices defined by the tf dataset defined above
     dataset = dataset.map(
         map_func=lambda idx: tf.py_function(
             fp_generator.map_idx_to_data,
             inp=[idx],
-            Tout=[tf.int64] * 2 + [tf.float32] * 5,
+            Tout=[tf.int64] * 2 + [tf.int32] + [tf.float32] * 5,
         ),
         # num_parallel_calls=os.cpu_count(), deterministic=False
     )
 
+    # Cache the data to make it faster
     if cache_data:
         cache_dir = Path(cache_dir)
         if not cache_dir.exists():
@@ -249,6 +263,7 @@ def get_dataset(
             [1 for _ in dataset.as_numpy_iterator()]
         dataset = dataset.cache(filename=str(cache_dir / "fps"))
 
+    # Idk let's just set interleave False
     if interleave:
         dataset = tf.data.Dataset.range(len(dataset)).interleave(
             lambda _: dataset,
@@ -296,6 +311,7 @@ def get_datasets(
         train_mode: teacher force or hard/soft selection
 
     """
+
     # Get column names
     mol_1_col = molecule_columns[0]
     mol_2_col = molecule_columns[1]
@@ -366,6 +382,8 @@ def get_datasets(
     )
 
     # Get datsets
+    class_id = df.loc[:, ["super class"]].iloc[train_idx].astype(np.int32).values
+    # class_id = np.squeeze(class_id)
     train_dataset = get_dataset(
         train_mol1,
         train_mol2,
@@ -373,6 +391,7 @@ def get_datasets(
         train_mol4,
         train_mol5,
         df=df.iloc[train_idx],
+        class_id=class_id,
         fp=train_val_fp[train_idx] if train_val_fp is not None else None,
         # mode=train_mode,
         fp_size=fp_size,
@@ -384,6 +403,8 @@ def get_datasets(
         interleave=interleave,
         cache_dir=".tf_cache_train/",
     )
+    class_id = df.loc[:, ["super class"]].iloc[val_idx].astype(np.int32).values
+    # class_id = np.squeeze(class_id)
     val_dataset = get_dataset(
         val_mol1,
         val_mol2,
@@ -391,6 +412,7 @@ def get_datasets(
         val_mol4,
         val_mol5,
         df=df.iloc[val_idx],
+        class_id=class_id,
         fp=train_val_fp[val_idx] if train_val_fp is not None else None,
         # mode=val_mode,
         fp_size=fp_size,
@@ -403,6 +425,8 @@ def get_datasets(
         cache_dir=".tf_cache_val/",
     )
     if include_test:
+        class_id = df.loc[:, ["super class"]].iloc[test_idx].astype(np.int32).values
+        # class_id = np.squeeze(class_id)
         test_dataset = get_dataset(
             test_mol1,
             test_mol2,
@@ -410,6 +434,7 @@ def get_datasets(
             test_mol4,
             test_mol5,
             df=df.iloc[test_idx],
+            class_id=class_id,
             fp=test_fp,
             # mode=mode,
             fp_size=fp_size,
@@ -441,14 +466,14 @@ def _fixup_shape(X, Y):
 
 def rearrange_data_teacher_force(*data):
     X = tuple(data)
-    y = tuple(data[2:])
+    y = tuple(data[3:]) #don't include class_id
     X, y = _fixup_shape(X, y)
     return X, y
 
 
 def rearrange_data(*data):
-    X = tuple(data[:2])
-    y = tuple(data[2:])
+    X = tuple(data[:3]) 
+    y = tuple(data[3:]) #don't include class_id
     X, y = _fixup_shape(X, y)
     return X, y
 

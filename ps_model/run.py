@@ -19,18 +19,19 @@ import wandb
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from wandb.keras import WandbMetricsLogger, WandbModelCheckpoint
 
-from condition_prediction.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
-from condition_prediction.data_generator import (
+from ps_model.constants import HARD_SELECTION, SOFT_SELECTION, TEACHER_FORCE
+from ps_model.data_generator import (
     get_datasets,
     rearrange_data,
     rearrange_data_teacher_force,
     unbatch_dataset,
 )
-from condition_prediction.model import (
-    build_teacher_forcing_model,
-    update_teacher_forcing_model_weights,
-)
-from condition_prediction.utils import (
+# from condition_prediction.gao_model import (
+#     build_teacher_forcing_model,
+#     update_teacher_forcing_model_weights,
+# )
+
+from ps_model.utils import (
     TrainingMetrics,
     download_model_from_wandb,
     frequency_informed_accuracy,
@@ -58,7 +59,7 @@ class ConditionPrediction:
     1.2) Targets: OHE
 
     """
-
+    model_type: str
     train_data_path: pathlib.Path
     test_data_path: pathlib.Path
     train_fp_path: pathlib.Path
@@ -71,6 +72,7 @@ class ConditionPrediction:
     generate_fingerprints: bool
     fp_size: int
     dropout: float
+    param_sharing_size: int
     hidden_size_1: int
     hidden_size_2: int
     lr: float
@@ -128,6 +130,7 @@ class ConditionPrediction:
                 test_df.drop(columns=[col], inplace=True)
 
         self.run_model(
+            model_type=self.model_type,
             train_val_df=train_df,
             test_df=test_df,
             train_val_fp=train_fp,
@@ -141,6 +144,7 @@ class ConditionPrediction:
             skip_training=self.skip_training,
             fp_size=self.fp_size,
             dropout=self.dropout,
+            param_sharing_size=self.param_sharing_size,
             hidden_size_1=self.hidden_size_1,
             hidden_size_2=self.hidden_size_2,
             lr=self.lr,
@@ -318,6 +322,7 @@ class ConditionPrediction:
 
     @staticmethod
     def run_model(
+        model_type: str,
         train_val_df: pd.DataFrame,
         test_df: pd.DataFrame,
         output_folder_path,
@@ -333,6 +338,7 @@ class ConditionPrediction:
         batch_size: int = 512,
         fp_size: int = 2048,
         dropout: float = 0.2,
+        param_sharing_size: int = 1000,
         hidden_size_1: int = 1024,
         hidden_size_2: int = 100,
         lr: float = 0.01,
@@ -347,7 +353,7 @@ class ConditionPrediction:
         cache_test_data: bool = False,
         eager_mode: bool = False,
         wandb_logging: bool = True,
-        wandb_project: str = "orderly",
+        wandb_project: str = "param-sharing",
         wandb_entity: Optional[str] = None,
         wandb_tags: Optional[List[str]] = None,
         wandb_group: Optional[str] = None,
@@ -362,12 +368,33 @@ class ConditionPrediction:
         Run condition prediction training
 
         """
-        config = locals()
+        config = locals().copy()
         config.pop("train_val_df")
         config.pop("test_df")
         config.pop("train_val_fp")
         config.pop("test_fp")
+        
 
+        
+        # import correct model
+        if model_type == "gao_model":
+            from ps_model.gao_model import (
+            build_teacher_forcing_model,
+            update_teacher_forcing_model_weights,
+            )
+        elif model_type == "upstream_model":
+            from ps_model.upstream_model import (
+                build_teacher_forcing_model,
+                update_teacher_forcing_model_weights,
+            )
+        elif model_type == "multi_ps_model":
+            from ps_model.multi_ps_model import (
+                build_teacher_forcing_model,
+                update_teacher_forcing_model_weights,
+            )
+        else:
+            raise ValueError(f"Model type {model_type} not recognised. Please use either [gao_model, upstream_model]")
+        
         ### Data setup ###
         assert train_val_df.shape[1] == test_df.shape[1]
 
@@ -391,6 +418,7 @@ class ConditionPrediction:
                 dataset_version=dataset_version,
             )
         )
+
 
         # Apply these to the fingerprints
         if train_val_fp is not None:
@@ -419,6 +447,9 @@ class ConditionPrediction:
             mol_5_col = "agent_002"
         molecule_columns = [mol_1_col, mol_2_col, mol_3_col, mol_4_col, mol_5_col]
 
+        # This basically just batches the data using tf.data.Dataset 
+        # This is to ensure that training isn't CPU bound
+        # It could be up to like 10x slower without this
         (
             train_dataset,
             val_dataset,
@@ -442,6 +473,10 @@ class ConditionPrediction:
             cache_val_data=cache_val_data,
             cache_test_data=cache_test_data,
         )
+
+        # Ensure that TF datasets are in correct shape, forces the data to be formatted correctly whether it's teacherforcing or not,
+        # Converts the data into X and y
+        # Currently train_dataset is a generator, not the actual data
         train_dataset = train_dataset.map(
             rearrange_data_teacher_force
             if train_mode == TEACHER_FORCE
@@ -471,6 +506,8 @@ class ConditionPrediction:
         del train_val_df
         del test_df
 
+
+
         LOG.info("Data ready for modelling")
         ### Model Setup ###
         model = build_teacher_forcing_model(
@@ -481,9 +518,10 @@ class ConditionPrediction:
             mol3_dim=len(encoders[2].categories_[0]),
             mol4_dim=len(encoders[3].categories_[0]),
             mol5_dim=len(encoders[4].categories_[0]),
+            N_ps=param_sharing_size,
             N_h1=hidden_size_1,
             N_h2=hidden_size_2,
-            l2v=0,  # TODO check what coef they used
+            l2v=0.01,  # TODO check what coef they used
             mode=train_mode,
             dropout_prob=dropout,
             use_batchnorm=True,
@@ -495,20 +533,42 @@ class ConditionPrediction:
             if train_mode == TEACHER_FORCE or train_mode == HARD_SELECTION
             else SOFT_SELECTION
         )
-        pred_model = build_teacher_forcing_model(
-            pfp_len=fp_size,
-            rxnfp_len=fp_size,
-            mol1_dim=len(encoders[0].categories_[0]),
-            mol2_dim=len(encoders[1].categories_[0]),
-            mol3_dim=len(encoders[2].categories_[0]),
-            mol4_dim=len(encoders[3].categories_[0]),
-            mol5_dim=len(encoders[4].categories_[0]),
-            N_h1=hidden_size_1,
-            N_h2=hidden_size_2,
-            l2v=0,
-            mode=val_mode,
-            dropout_prob=dropout,
-            use_batchnorm=True,
+        if (train_mode == HARD_SELECTION) or (train_mode == SOFT_SELECTION):
+            pred_model = model
+            
+        else:
+            pred_model = build_teacher_forcing_model(
+                pfp_len=fp_size,
+                rxnfp_len=fp_size,
+                mol1_dim=len(encoders[0].categories_[0]),
+                mol2_dim=len(encoders[1].categories_[0]),
+                mol3_dim=len(encoders[2].categories_[0]),
+                mol4_dim=len(encoders[3].categories_[0]),
+                mol5_dim=len(encoders[4].categories_[0]),
+                N_ps=param_sharing_size,
+                N_h1=hidden_size_1,
+                N_h2=hidden_size_2,
+                l2v=0.01, # TODO: check what coef they used
+                mode=val_mode,
+                dropout_prob=dropout,
+                use_batchnorm=True,
+            )
+        pred_model.compile(
+            loss=[
+                tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+                for _ in range(5)
+            ],
+            loss_weights=[1, 1, 1, 1, 1],
+            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+            metrics={
+                f"mol{i}": [
+                    "acc",
+                    tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
+                    tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
+                ]
+                for i in range(1, 6)
+            },
+            run_eagerly=eager_mode,
         )
 
         model.compile(
@@ -528,23 +588,7 @@ class ConditionPrediction:
             },
             run_eagerly=eager_mode,
         )
-        pred_model.compile(
-            loss=[
-                tf.keras.losses.CategoricalCrossentropy(from_logits=False)
-                for _ in range(5)
-            ],
-            loss_weights=[1, 1, 1, 1, 1],
-            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
-            metrics={
-                f"mol{i}": [
-                    "acc",
-                    tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3"),
-                    tf.keras.metrics.TopKCategoricalAccuracy(k=5, name="top5"),
-                ]
-                for i in range(1, 6)
-            },
-            run_eagerly=eager_mode,
-        )
+        
 
         ### Training ###
         callbacks = [
@@ -621,9 +665,10 @@ class ConditionPrediction:
                 model.load_weights(best_checkpoint_filepath)
             else:
                 model.load_weights(last_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
 
         use_multiprocessing = True if workers > 0 else False
         h = None
@@ -644,9 +689,10 @@ class ConditionPrediction:
                 )
             finally:
                 model.save_weights(last_checkpoint_filepath)
-                update_teacher_forcing_model_weights(
-                    update_model=pred_model, to_copy_model=model
-                )
+                if train_mode == TEACHER_FORCE:
+                    update_teacher_forcing_model_weights(
+                        update_model=pred_model, to_copy_model=model
+                    )
 
         # Upload the best and last model
         if wandb_logging and not skip_training:
@@ -669,9 +715,10 @@ class ConditionPrediction:
         # Train and val metrics
         train_val_metrics_dict = {}
         model.load_weights(last_checkpoint_filepath)
-        update_teacher_forcing_model_weights(
-            update_model=pred_model, to_copy_model=model
-        )
+        if train_mode == TEACHER_FORCE:
+            update_teacher_forcing_model_weights(
+                update_model=pred_model, to_copy_model=model
+            )
         train_val_metrics_dict["trust_labelling"] = trust_labelling
         train_val_metrics_dict.update(
             {
@@ -683,9 +730,10 @@ class ConditionPrediction:
 
         # Load the best model back and do evaluation
         model.load_weights(best_checkpoint_filepath)
-        update_teacher_forcing_model_weights(
-            update_model=pred_model, to_copy_model=model
-        )
+        if train_mode == TEACHER_FORCE:
+            update_teacher_forcing_model_weights(
+                update_model=pred_model, to_copy_model=model
+            )
         train_val_metrics_dict.update(
             {
                 "val_best": ConditionPrediction.evaluate_model(
@@ -720,9 +768,10 @@ class ConditionPrediction:
             test_metrics_dict = dict(zip(model.metrics_names, test_metrics))
             test_metrics_dict["trust_labelling"] = trust_labelling
             model.load_weights(best_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
             test_metrics_dict.update(
                 {
                     "test_best": ConditionPrediction.evaluate_model(
@@ -731,9 +780,10 @@ class ConditionPrediction:
                 }
             )
             model.load_weights(last_checkpoint_filepath)
-            update_teacher_forcing_model_weights(
-                update_model=pred_model, to_copy_model=model
-            )
+            if train_mode == TEACHER_FORCE:
+                update_teacher_forcing_model_weights(
+                    update_model=pred_model, to_copy_model=model
+                )
             test_metrics_dict.update(
                 {
                     "test_last_epoch": ConditionPrediction.evaluate_model(
@@ -762,6 +812,13 @@ class ConditionPrediction:
 
 
 @click.command()
+@click.option(
+    "--model_type",
+    type=str,
+    default="gao_model",
+    show_default=True,
+    help="Condition prediction model to use. Must be one of [gao_model, upstream_model]",
+)
 @click.option(
     "--train_data_path",
     type=str,
@@ -855,6 +912,12 @@ class ConditionPrediction:
     help="The dropout rate used in the model",
 )
 @click.option(
+    "--param_sharing_size",
+    default=1000,
+    type=int,
+    help="The size (width) of the parameter sharing layer in the model",
+)
+@click.option(
     "--hidden_size_1",
     default=1024,
     type=int,
@@ -904,7 +967,7 @@ class ConditionPrediction:
 )
 @click.option(
     "--wandb_project",
-    default="orderly",
+    default="param-sharing",
     type=str,
     help="The project to use for logging to wandb",
 )
@@ -980,6 +1043,7 @@ class ConditionPrediction:
     help="path for the log file for model",
 )
 def main_click(
+    model_type: str,
     train_data_path: pathlib.Path,
     test_data_path: pathlib.Path,
     output_folder_path: pathlib.Path,
@@ -995,6 +1059,7 @@ def main_click(
     workers: int,
     fp_size: int,
     dropout: float,
+    param_sharing_size: int,
     hidden_size_1: int,
     hidden_size_2: int,
     lr: float,
@@ -1036,6 +1101,7 @@ def main_click(
     """
     wandb_tags = wandb_tag
     main(
+        model_type=model_type,
         train_data_path=train_data_path,
         test_data_path=test_data_path,
         output_folder_path=output_folder_path,
@@ -1051,6 +1117,7 @@ def main_click(
         workers=workers,
         fp_size=fp_size,
         dropout=dropout,
+        param_sharing_size=param_sharing_size,
         hidden_size_1=hidden_size_1,
         hidden_size_2=hidden_size_2,
         lr=lr,
@@ -1076,6 +1143,7 @@ def main_click(
 
 
 def main(
+    model_type: str,
     train_data_path: pathlib.Path,
     test_data_path: pathlib.Path,
     output_folder_path: pathlib.Path,
@@ -1091,6 +1159,7 @@ def main(
     workers: int,
     fp_size: int,
     dropout: float,
+    param_sharing_size: int,
     hidden_size_1: int,
     hidden_size_2: int,
     lr: float,
@@ -1135,7 +1204,7 @@ def main(
     test_data_path = pathlib.Path(test_data_path)
     output_folder_path = pathlib.Path(output_folder_path)
 
-    log_file = pathlib.Path(output_folder_path) / f"model.log"
+    log_file = pathlib.Path(output_folder_path) / f"{model_type}.log"
     if log_file != "default_path_model.log":
         log_file = pathlib.Path(log_file)
 
@@ -1181,6 +1250,7 @@ def main(
     LOG.info(f"Beginning model training, saving to {output_folder_path}")
 
     instance = ConditionPrediction(
+        model_type=model_type,
         train_data_path=train_data_path,
         test_data_path=test_data_path,
         train_fp_path=train_fp_path,
@@ -1193,6 +1263,7 @@ def main(
         generate_fingerprints=generate_fingerprints,
         fp_size=fp_size,
         dropout=dropout,
+        param_sharing_size=param_sharing_size,
         hidden_size_1=hidden_size_1,
         hidden_size_2=hidden_size_2,
         lr=lr,
