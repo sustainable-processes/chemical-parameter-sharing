@@ -44,21 +44,9 @@ Then execute the following commands in the root of the repository (stolen from: 
 # Data
 1) USPTO from ORD using ORDerly
 2) Pistachio
-3) Suzuki reactions from Reaxys (cleaned by Alexander)
+3) Suzuki reactions from Reaxys
 4) https://github.com/jshmjs45/data_for_chem#data_from_cjhif_utf8
 
 
-
-# Timeline
-
-- By end of Nov: Complete 1 full path through the pipeline, choosing the easiest options for cleaning data, clustering, and NN. Plot our first parity plot
-- December: Perform case study on rxn with only little data (e.g. cyclopropanation? Alexander should suggest a reaction). Consider 3 cases, and if outperformance is shown, work on conference draft:
-    - Feed all data to NN
-    - Feed only data about said reaction to NN (LOOCV)
-    - Parameter sharing
-- Jan-Feb: Add features to pipeline, e.g. different data sources (Reaxys & pistachio), different methods of parameter sharing & clustering
-- March-April: Draft paper
-    - Example Neurips paper: https://proceedings.neurips.cc/paper/2021/file/884d247c6f65a96a7da4d1105d584ddd-Paper.pdf
-    
     
     
