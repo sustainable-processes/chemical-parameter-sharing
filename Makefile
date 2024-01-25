@@ -18,6 +18,19 @@ WANDB_ENTITY=ceb-sre
 # Then run the code in clustering.ipynb to generate the new datasets with different clusterings based on reaction classes
 # Then use the make commands below
 
+# Simplified workflow
+fp_ps_random_train:
+	python -m ps_model.gen_fp --clean_data_folder_path="data/orderly_condition_classified_train.parquet" --fp_size=2048 --overwrite=False
+fp_ps_random_test:
+	python -m ps_model.gen_fp --clean_data_folder_path="data/orderly_condition_classified_test.parquet" --fp_size=2048 --overwrite=False
+ps_random_split_v6:
+	python -m ps_model --model_type="upstream_model" --train_data_path="data/orderly_condition_classified_train.parquet" --test_data_path="data/orderly_condition_classified_test.parquet" --output_folder_path="models/ps_random_split_orderly_v6"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=50 --wandb_entity=$(WANDB_ENTITY)
+
+gao_random_split_v6:
+	python -m gao_model --model_type="gao_model" --train_data_path="data/orderly_condition_classified_train.parquet" --test_data_path="data/orderly_condition_classified_test.parquet" --output_folder_path="models/gao_random_split_v6"  --train_fraction=1 --train_val_split=0.8 --overwrite=False --epochs=50 --evaluate_on_test_data=True --early_stopping_patience=50 --wandb_entity=$(WANDB_ENTITY)
+
+train_ps: fp_ps_random_train fp_ps_random_test ps_random_split_v6
+
 # 1. Generate fingerprints for each dataset
 ## Super class
 fp_mid_class_train:
