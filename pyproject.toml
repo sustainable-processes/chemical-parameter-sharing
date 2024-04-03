@@ -9,6 +9,9 @@ authors = [
 ]
 
 # NB installing tensorflow with poetry won't work on my mac studio with an M1 chip for some reason, so have to remove it from the toml file and install it separately
+# conda install -y -c apple tensorflow-deps
+# python -m pip install tensorflow-macos tensorflow-metal
+
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
 #tensorflow = { version = "^2.12.0"}
